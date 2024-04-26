@@ -3,8 +3,7 @@ use super::{Identifier, Keyword, Literal, Operator};
 #[derive(Debug, PartialEq, PartialOrd)]
 pub struct Token<'a> {
     pub kind: TokenKind<'a>,
-    pub literal: &'a str,
-    pub source: TokenSource,
+    pub position: (usize, usize),
 }
 
 #[derive(Debug, PartialEq, PartialOrd)]
@@ -37,9 +36,4 @@ pub enum Delimiter {
     Paren,
     Square,
     Brace,
-}
-
-#[derive(Debug, PartialEq, PartialOrd)]
-pub struct TokenSource {
-    pub position: (usize, usize),
 }
