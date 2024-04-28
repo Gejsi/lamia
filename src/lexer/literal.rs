@@ -1,4 +1,7 @@
-use std::{fmt::Display, num::ParseIntError};
+use std::{
+    fmt::Display,
+    num::{ParseFloatError, ParseIntError},
+};
 
 use nom::{
     branch::alt,
@@ -103,7 +106,10 @@ fn lex_bit_count(i: &str) -> IResult<&str, BitCount, LexerError> {
 }
 
 fn lex_number_type(i: &str) -> IResult<&str, NumberKind, LexerError> {
-    map(pair(alt((char('f'), char('u'), char('i'))), lex_bit_count), |(c,b)| NumberKind(c,b))(i)
+    map(
+        pair(alt((char('f'), char('u'), char('i'))), lex_bit_count),
+        |(c, b)| NumberKind(c, b),
+    )(i)
 }
 
 fn lex_exponent(i: &str) -> IResult<&str, i64, LexerError> {
@@ -119,13 +125,13 @@ fn lex_exponent(i: &str) -> IResult<&str, i64, LexerError> {
 // TODO: proper number error handling pls
 #[derive(Error, Debug)]
 enum NumberParsingError {
-    #[error("")]
-    LexError,
+    #[error("Failed to parse to as an u64: {0}")]
+    ParseIntegerError(#[from] ParseIntError),
 
-    #[error("Failed to parse to a 32 bit integer: {0}")]
-    ParseIntError(#[from] ParseIntError),
+    #[error("Failed to parse to as an f64: {0}")]
+    ParseFloatingError(#[from] ParseFloatError),
 
-    #[error("Failed to parse {0} which contains exponent")]
+    #[error("Failed to parse {0} containing exponent")]
     IntegerWithExponent(NumberKind),
 }
 
@@ -135,20 +141,24 @@ fn parse_number(
     kind: Option<NumberKind>,
 ) -> Result<Number, NumberParsingError> {
     let final_kind = match (exp, kind) {
-        (Some(_), None) => Ok(Some(('f', BitCount::_64))),
-        (Some(_), Some(NumberKind('f', size))) => Ok(Some(('f', size))),
-        (Some(_), Some(NumberKind('i', _))) | (Some(_), Some(NumberKind('u', _))) => {
-            return Err(NumberParsingError::LexError)
+        (Some(_), None) => Ok(Some(NumberKind('f', BitCount::_64))),
+        (Some(_), Some(NumberKind('f', size))) => Ok(Some(NumberKind('f', size))),
+        (Some(_), Some(n @ NumberKind('i', _))) | (Some(_), Some(n @ NumberKind('u', _))) => {
+            Err(NumberParsingError::IntegerWithExponent(n))
         }
         (_, kind) => Ok(kind),
     }?;
     let has_dot = value.contains('.');
-    let parsed_value = match (final_kind.clone(), has_dot) {
+    let parsed_value = match (&final_kind, has_dot) {
         // Parse as a float if it's hard-coded or if the number contains a dot
-        (Some(('f', _)), _) | (_, true) => value
+        (Some(NumberKind('f', _)), _) | (_, true) => value
             .parse::<f64>()
-            .map(|f| NumberValue::Floating(exp.unwrap_or(1) as f64 * f))?,
-        _ => value.parse::<u64>().map(NumberValue::Integer)?,
+            .map(|f| NumberValue::Floating(f * 10f64.powf(exp.unwrap_or(0) as f64)))
+            .map_err(NumberParsingError::ParseFloatingError),
+        _ => value
+            .parse::<u64>()
+            .map(NumberValue::Integer)
+            .map_err(NumberParsingError::ParseIntegerError),
     }?;
 
     Ok(Number {
@@ -180,7 +190,7 @@ pub fn lex_literal(i: &str) -> IResult<&str, Literal, LexerError> {
 mod tests {
     use crate::lexer::{
         lex_literal,
-        literal::{BitCount, Number, NumberValue},
+        literal::{BitCount, Number, NumberKind, NumberValue},
         Literal,
     };
 
@@ -209,7 +219,7 @@ mod tests {
     fn match_u64() {
         assert_number_expr!(
             "123u64",
-            Some(('u', BitCount::_64)),
+            Some(NumberKind('u', BitCount::_64)),
             NumberValue::Integer(123)
         );
 
@@ -221,30 +231,31 @@ mod tests {
     fn match_i64() {
         assert_number_expr!(
             "123u64",
-            Some(('i', BitCount::_64)),
+            Some(NumberKind('u', BitCount::_64)),
             NumberValue::Integer(123)
         );
     }
 
+    #[test]
     fn match_f64() {
         assert_number_expr!(
             "123f64",
-            Some(('f', BitCount::_32)),
+            Some(NumberKind('f', BitCount::_64)),
             NumberValue::Floating(123f64)
         );
         assert_number_expr!(
             "123.23f64",
-            Some(('f', BitCount::_64)),
+            Some(NumberKind('f', BitCount::_64)),
             NumberValue::Floating(123.23f64)
         );
         assert_number_expr!(
             "123.23e10f64",
-            Some(('f', BitCount::_64)),
+            Some(NumberKind('f', BitCount::_64)),
             NumberValue::Floating(123.23e10f64)
         );
         assert_number_expr!(
             "123.23E10f64",
-            Some(('f', BitCount::_64)),
+            Some(NumberKind('f', BitCount::_64)),
             NumberValue::Floating(123.23E10f64)
         );
 
@@ -255,25 +266,26 @@ mod tests {
         assert_number_expr!("123.23E10", None, NumberValue::Floating(123.23E10));
     }
 
+    #[test]
     fn match_f32() {
         assert_number_expr!(
             "123f32",
-            Some(('f', BitCount::_32)),
+            Some(NumberKind('f', BitCount::_32)),
             NumberValue::Floating(123.0)
         );
         assert_number_expr!(
             "123.23f32",
-            Some(('f', BitCount::_32)),
+            Some(NumberKind('f', BitCount::_32)),
             NumberValue::Floating(123.23)
         );
         assert_number_expr!(
             "123.23e10f32",
-            Some(('f', BitCount::_32)),
+            Some(NumberKind('f', BitCount::_32)),
             NumberValue::Floating(123.23e10)
         );
         assert_number_expr!(
             "123.23E10f32",
-            Some(('f', BitCount::_32)),
+            Some(NumberKind('f', BitCount::_32)),
             NumberValue::Floating(123.23E10)
         );
     }
