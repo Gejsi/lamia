@@ -45,6 +45,12 @@ mod tests {
         assert_eq!(lex_identifier("_var_name"), Ok(("", "_var_name")));
     }
 
+    // #[test]
+    // fn match_unicode_identifier() {
+    //     assert_eq!(lex_identifier("Москва"), Ok(("", "Москва")));
+    //     assert_eq!(lex_identifier("東京"), Ok(("", "東京")));
+    // }
+
     #[test]
     fn not_match_identifier_number() {
         assert_eq!(
