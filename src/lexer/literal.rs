@@ -4,7 +4,7 @@ use nom::{
     character::complete::{alphanumeric1, char, digit1, one_of},
     combinator::{cut, map, map_res, opt, recognize, value},
     multi::many0,
-    sequence::{pair, preceded, terminated, tuple},
+    sequence::{pair, preceded, separated_pair, terminated, tuple},
     IResult,
 };
 
@@ -74,7 +74,28 @@ fn lex_number(i: &str) -> IResult<&str, Number, LexerError> {
         //     cut(decimal),
         // ))),
         // Case: 42.42
-        // recognize(separated_pair(decimal, char('.'), decimal)),
+        map_res(
+            tuple((
+                decimal,
+                char('.'),
+                decimal,
+                opt(alt((tag("f32"), tag("f64")))),
+            )),
+            |(int_part, _, frac_part, suffix)| {
+                let float = format!("{int_part}.{frac_part}");
+
+                Ok::<Number, LexerError>(match suffix {
+                    Some(suffix) => {
+                        if suffix == "f64" {
+                            Number::Double(float.parse::<f64>().unwrap_or(0.0))
+                        } else {
+                            Number::Float(float.parse::<f32>().unwrap_or(0.0_f32))
+                        }
+                    }
+                    None => Number::Double(float.parse::<f64>().unwrap_or(0.0)),
+                })
+            },
+        ),
         // Case: 42.
         // recognize(tuple((decimal, char('.')))),
 
@@ -126,6 +147,22 @@ mod tests {
         assert_eq!(
             lex_literal("123i64"),
             Ok(("", Literal::Number(Number::Long(123))))
+        );
+    }
+
+    #[test]
+    fn match_double() {
+        assert_eq!(
+            lex_literal("123.1"),
+            Ok(("", Literal::Number(Number::Double(123.1))))
+        );
+        assert_eq!(
+            lex_literal("123.1f64"),
+            Ok(("", Literal::Number(Number::Double(123.1))))
+        );
+        assert_eq!(
+            lex_literal("123.10f32"),
+            Ok(("", Literal::Number(Number::Float(123.1))))
         );
     }
 
