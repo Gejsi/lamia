@@ -37,6 +37,8 @@ pub enum BitCount {
     _16,
     _32,
     _64,
+    _128,
+    Size,
 }
 
 impl Display for BitCount {
@@ -46,6 +48,8 @@ impl Display for BitCount {
             BitCount::_16 => 16,
             BitCount::_32 => 32,
             BitCount::_64 => 64,
+            BitCount::_128 => 128,
+            BitCount::Size => 8 * std::mem::size_of::<usize>(),
         };
         write!(f, "{}", n)
     }
@@ -96,6 +100,8 @@ fn lex_bit_count(i: &str) -> IResult<&str, BitCount, LexerError> {
         value(BitCount::_16, tag("16")),
         value(BitCount::_32, tag("32")),
         value(BitCount::_64, tag("64")),
+        value(BitCount::_128, tag("128")),
+        value(BitCount::Size, tag("size")),
     ))(i)
 }
 
@@ -213,6 +219,16 @@ mod tests {
             NumberKind('u', BitCount::_64),
             NumberValue::Integer(123)
         );
+        assert_number_expr!(
+            "123u128",
+            NumberKind('u', BitCount::_128),
+            NumberValue::Integer(123)
+        );
+        assert_number_expr!(
+            "123usize",
+            NumberKind('u', BitCount::Size),
+            NumberValue::Integer(123)
+        );
     }
 
     #[test]
@@ -242,6 +258,16 @@ mod tests {
             NumberKind('i', BitCount::_64),
             NumberValue::Integer(123)
         );
+        assert_number_expr!(
+            "123i128",
+            NumberKind('i', BitCount::_128),
+            NumberValue::Integer(123)
+        );
+        assert_number_expr!(
+            "123isize",
+            NumberKind('i', BitCount::Size),
+            NumberValue::Integer(123)
+        );
     }
 
     #[test]
@@ -261,7 +287,7 @@ mod tests {
             NumberKind('f', BitCount::_64),
             NumberValue::Floating(42.42e2)
         );
-        // TODO: this doesn't work due to a overflow error
+        // TODO: this doesn't work due to a overflow error (???)
         // assert_number_expr!(
         //     "42.42e42",
         //     NumberKind('f', BitCount::_64),
@@ -352,6 +378,10 @@ mod tests {
         assert_eq!(
             lex_literal("123.12f16"),
             Err(NErr::Error(("123.12f16", ErrorKind::MapRes)))
+        );
+        assert_eq!(
+            lex_literal("123fsize"),
+            Err(NErr::Error(("123fsize", ErrorKind::MapRes)))
         );
     }
 }
