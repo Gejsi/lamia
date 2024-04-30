@@ -133,31 +133,21 @@ fn parse_number(
 
     let parsed_kind = match (exp, kind) {
         (Some(_), None) => Ok(NumberKind('f', BitCount::_64)),
-        (Some(_), Some(n @ NumberKind('f', _))) => {
-            if n.1 != BitCount::_32 && n.1 != BitCount::_64 {
-                Err(NumberParsingError::InvalidFloatPrecision(n))
-            } else {
-                Ok(n)
-            }
-        }
+        (Some(_), Some(n @ NumberKind('f', _))) => Ok(n),
         (Some(_), Some(n @ NumberKind('i', _))) | (Some(_), Some(n @ NumberKind('u', _))) => {
             Err(NumberParsingError::IntegerWithExponent(n))
         }
-        (_, kind) => Ok(match kind {
-            Some(n) => {
-                if n.0 == 'f' && n.1 != BitCount::_32 && n.1 != BitCount::_64 {
-                    return Err(NumberParsingError::InvalidFloatPrecision(n));
-                } else {
-                    n
-                }
-            }
-            // integers default to `i32`, floats default to `f64`
-            None => match parsed_value {
-                NumberValue::Integer(_) => NumberKind('i', BitCount::_32),
-                NumberValue::Floating(_) => NumberKind('f', BitCount::_64),
-            },
-        }),
+        (_, kind) => Ok(kind.unwrap_or(match parsed_value {
+            // integers default to `i32`
+            NumberValue::Integer(_) => NumberKind('i', BitCount::_32),
+            //floats default to `f64`
+            NumberValue::Floating(_) => NumberKind('f', BitCount::_64),
+        })),
     }?;
+
+    if parsed_kind.0 == 'f' && parsed_kind.1 != BitCount::_32 && parsed_kind.1 != BitCount::_64 {
+        return Err(NumberParsingError::InvalidFloatPrecision(parsed_kind));
+    }
 
     Ok(Number {
         value: parsed_value,
@@ -342,7 +332,11 @@ mod tests {
             Err(NErr::Failure(("_f32", ErrorKind::Digit)))
         );
 
-        // invalid float precision
+        // ....more....
+    }
+
+    #[test]
+    fn fail_invalid_float_precision() {
         assert_eq!(
             lex_literal("123e12f8"),
             Err(NErr::Error(("123e12f8", ErrorKind::MapRes)))
@@ -359,7 +353,5 @@ mod tests {
             lex_literal("123.12f16"),
             Err(NErr::Error(("123.12f16", ErrorKind::MapRes)))
         );
-
-        // ....more....
     }
 }
