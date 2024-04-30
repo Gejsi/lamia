@@ -5,23 +5,16 @@ use std::{
 
 use nom::{
     branch::alt,
-    bytes::complete::{escaped, tag},
-    character::complete::{alphanumeric1, char, digit1, one_of},
+    bytes::complete::tag,
+    character::complete::{char, digit1, one_of},
     combinator::{cut, map, map_res, opt, recognize, value},
     multi::many0,
-    sequence::{pair, preceded, separated_pair, terminated, tuple},
+    sequence::{pair, separated_pair, tuple},
     IResult,
 };
 use thiserror::Error;
 
-use super::LexerError;
-
-#[derive(Debug, PartialEq, PartialOrd)]
-pub enum Literal<'a> {
-    String(&'a str),
-    Bool(bool),
-    Number(Number),
-}
+use crate::lexer::LexerError;
 
 #[derive(Debug, PartialEq, PartialOrd)]
 pub struct Number {
@@ -36,7 +29,7 @@ pub enum NumberValue {
 }
 
 #[derive(Debug, PartialEq, PartialOrd)]
-pub struct NumberKind(char, BitCount);
+pub struct NumberKind(pub char, pub BitCount);
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum BitCount {
@@ -64,18 +57,16 @@ impl Display for NumberKind {
     }
 }
 
-fn lex_bool(i: &str) -> IResult<&str, bool, LexerError> {
-    alt((value(true, tag("true")), value(false, tag("false"))))(i)
-}
+#[derive(Error, Debug)]
+enum NumberParsingError {
+    #[error("Failed to parse to as an u64: {0}")]
+    ParseIntegerError(#[from] ParseIntError),
 
-fn lex_string(i: &str) -> IResult<&str, &str, LexerError> {
-    preceded(
-        char('\"'),
-        cut(terminated(
-            escaped(alphanumeric1, '\\', one_of("\"n\\")),
-            char('\"'),
-        )),
-    )(i)
+    #[error("Failed to parse to as an f64: {0}")]
+    ParseFloatingError(#[from] ParseFloatError),
+
+    #[error("Failed to parse {0} containing exponent")]
+    IntegerWithExponent(NumberKind),
 }
 
 fn remove_number_sugar(i: &str) -> String {
@@ -122,18 +113,6 @@ fn lex_exponent(i: &str) -> IResult<&str, i64, LexerError> {
     )(i)
 }
 
-#[derive(Error, Debug)]
-enum NumberParsingError {
-    #[error("Failed to parse to as an u64: {0}")]
-    ParseIntegerError(#[from] ParseIntError),
-
-    #[error("Failed to parse to as an f64: {0}")]
-    ParseFloatingError(#[from] ParseFloatError),
-
-    #[error("Failed to parse {0} containing exponent")]
-    IntegerWithExponent(NumberKind),
-}
-
 fn parse_number(
     (value, exp, kind): (String, Option<i64>, Option<NumberKind>),
 ) -> Result<Number, NumberParsingError> {
@@ -141,7 +120,7 @@ fn parse_number(
         // Parse as a float if it has the appropriate suffix or contains a dot or contains exponent
         (Some(NumberKind('f', _)), _, _) | (_, true, _) | (_, _, Some(_)) => value
             .parse::<f64>()
-            .map(|f| NumberValue::Floating(f * 10f64.powi(exp.unwrap_or(0) as i32)))
+            .map(|f| NumberValue::Floating(f * (10f64.powi(exp.unwrap_or(0) as i32))))
             .map_err(NumberParsingError::ParseFloatingError),
         _ => value
             .parse::<u64>()
@@ -167,7 +146,7 @@ fn parse_number(
     })
 }
 
-fn lex_number(i: &str) -> IResult<&str, Number, LexerError> {
+pub fn lex_number(i: &str) -> IResult<&str, Number, LexerError> {
     map_res(
         tuple((
             alt((lex_float, lex_decimal)),
@@ -178,29 +157,15 @@ fn lex_number(i: &str) -> IResult<&str, Number, LexerError> {
     )(i)
 }
 
-pub fn lex_literal(i: &str) -> IResult<&str, Literal, LexerError> {
-    alt((
-        map(lex_bool, Literal::Bool),
-        map(lex_string, Literal::String),
-        map(lex_number, Literal::Number),
-    ))(i)
-}
-
 #[cfg(test)]
 mod tests {
     use nom::{error::ErrorKind, Err as NErr};
 
     use crate::lexer::{
         lex_literal,
-        literal::{BitCount, Number, NumberKind, NumberValue},
+        literal::number::{BitCount, Number, NumberKind, NumberValue},
         Literal,
     };
-
-    #[test]
-    fn match_bool() {
-        assert_eq!(lex_literal("true"), Ok(("", Literal::Bool(true))));
-        assert_eq!(lex_literal("false"), Ok(("", Literal::Bool(false))));
-    }
 
     macro_rules! assert_number_expr {
         ($n: expr, $kind: expr, $value: expr) => {
@@ -358,26 +323,5 @@ mod tests {
             Err(NErr::Failure(("_f32", ErrorKind::Digit)))
         );
         // ....more....
-    }
-
-    #[test]
-    fn match_simple_string() {
-        assert_eq!(lex_literal("\"test\""), Ok(("", Literal::String("test"))));
-    }
-
-    #[test]
-    fn match_escaped_string() {
-        assert_eq!(
-            lex_literal("\"test\\\"\""),
-            Ok(("", Literal::String("test\\\"")))
-        );
-    }
-
-    #[test]
-    fn match_newline_string() {
-        assert_eq!(
-            lex_literal("\"test\\n\""),
-            Ok(("", Literal::String("test\\n")))
-        );
     }
 }
