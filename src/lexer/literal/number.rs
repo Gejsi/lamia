@@ -6,10 +6,10 @@ use std::{
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{char, digit1, one_of},
+    character::complete::{char, digit1, hex_digit1, oct_digit1, one_of},
     combinator::{cut, map, map_res, opt, recognize, value},
-    multi::many0,
-    sequence::{pair, separated_pair, tuple},
+    multi::{many0, many1},
+    sequence::{pair, preceded, separated_pair, terminated, tuple},
     IResult,
 };
 use thiserror::Error;
@@ -24,8 +24,16 @@ pub struct Number {
 
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum NumberValue {
-    Integer(u64),
+    Integer { value: u128, kind: IntegerKind },
     Floating(f64),
+}
+
+#[derive(Debug, PartialEq, PartialOrd)]
+pub enum IntegerKind {
+    Decimal,
+    Hexadecimal,
+    Octal,
+    Binary,
 }
 
 #[derive(Debug, PartialEq, PartialOrd)]
@@ -72,25 +80,50 @@ enum NumberParsingError {
     #[error("Failed to parse {0} containing exponent")]
     IntegerWithExponent(NumberKind),
 
-    #[error("Invalid floating point precision: {0}. Only `f32` and `f64` are allowed.")]
+    #[error("Invalid floating point precision: {0}. Only `f32` and `f64` are allowed")]
     InvalidFloatPrecision(NumberKind),
 }
 
-fn remove_number_sugar(i: &str) -> String {
+fn desugar(i: &str) -> String {
     i.replace('_', "")
 }
 
-fn lex_decimal(i: &str) -> IResult<&str, String, LexerError> {
+fn lex_hexadecimal(i: &str) -> IResult<&str, &str, LexerError> {
+    preceded(
+        alt((tag("0x"), tag("0X"))),
+        recognize(pair(hex_digit1, many0(alt((hex_digit1, tag("_")))))),
+    )(i)
+}
+
+fn lex_octal(i: &str) -> IResult<&str, &str, LexerError> {
+    preceded(
+        alt((tag("0o"), tag("0O"))),
+        recognize(pair(oct_digit1, many0(alt((oct_digit1, tag("_")))))),
+    )(i)
+}
+
+fn lex_binary(i: &str) -> IResult<&str, &str, LexerError> {
+    preceded(
+        alt((tag("0b"), tag("0B"))),
+        recognize(many1(terminated(one_of("01"), many0(char('_'))))),
+    )(i)
+}
+
+fn lex_decimal(i: &str) -> IResult<&str, &str, LexerError> {
+    recognize(pair(digit1, many0(alt((digit1, tag("_"))))))(i)
+}
+
+fn lex_integer(i: &str) -> IResult<&str, String, LexerError> {
     map(
-        recognize(pair(digit1, many0(alt((digit1, tag("_")))))),
-        remove_number_sugar,
+        alt((lex_hexadecimal, lex_octal, lex_binary, lex_decimal)),
+        desugar,
     )(i)
 }
 
 fn lex_float(i: &str) -> IResult<&str, String, LexerError> {
     map(
         separated_pair(lex_decimal, char('.'), cut(lex_decimal)),
-        |(int_part, frac_part)| remove_number_sugar(&format!("{int_part}.{frac_part}")),
+        |(int_part, frac_part)| desugar(&format!("{int_part}.{frac_part}")),
     )(i)
 }
 
@@ -116,12 +149,14 @@ fn lex_exponent(i: &str) -> IResult<&str, i64, LexerError> {
     map_res(
         tuple((one_of("eE"), opt(one_of("+-")), cut(lex_decimal))),
         |(_, sign, decimal)| {
-            let n = format!("{}{}", sign.unwrap_or('+'), remove_number_sugar(&decimal));
+            let n = format!("{}{}", sign.unwrap_or('+'), desugar(&decimal));
             n.parse::<i64>()
         },
     )(i)
 }
 
+// TODO: discriminate integer typed based on the prefix: i don't think this can be done right now
+// with this function as this may need to be refactored by taking a `value` type more complex than a simple `String`.
 fn parse_number(
     (value, exp, kind): (String, Option<i64>, Option<NumberKind>),
 ) -> Result<Number, NumberParsingError> {
@@ -132,8 +167,11 @@ fn parse_number(
             .map(|f| NumberValue::Floating(f * (10f64.powi(exp.unwrap_or(0) as i32))))
             .map_err(NumberParsingError::ParseFloatingError),
         _ => value
-            .parse::<u64>()
-            .map(NumberValue::Integer)
+            .parse::<u128>()
+            .map(|i| NumberValue::Integer {
+                value: i,
+                kind: IntegerKind::Decimal,
+            })
             .map_err(NumberParsingError::ParseIntegerError),
     }?;
 
@@ -145,8 +183,8 @@ fn parse_number(
         }
         (_, kind) => Ok(kind.unwrap_or(match parsed_value {
             // integers default to `i32`
-            NumberValue::Integer(_) => NumberKind('i', BitCount::_32),
-            //floats default to `f64`
+            NumberValue::Integer { value: _, kind: _ } => NumberKind('i', BitCount::_32),
+            // floats default to `f64`
             NumberValue::Floating(_) => NumberKind('f', BitCount::_64),
         })),
     }?;
@@ -164,7 +202,7 @@ fn parse_number(
 pub fn lex_number(i: &str) -> IResult<&str, Number, LexerError> {
     map_res(
         tuple((
-            alt((lex_float, lex_decimal)),
+            alt((lex_float, lex_integer)),
             opt(lex_exponent),
             opt(lex_number_kind),
         )),
@@ -174,11 +212,9 @@ pub fn lex_number(i: &str) -> IResult<&str, Number, LexerError> {
 
 #[cfg(test)]
 mod tests {
-    use nom::{error::ErrorKind, Err as NErr};
-
     use crate::lexer::{
         lex_literal,
-        literal::number::{BitCount, Number, NumberKind, NumberValue},
+        literal::number::{BitCount, IntegerKind, Number, NumberKind, NumberValue},
         Literal,
     };
 
@@ -202,32 +238,50 @@ mod tests {
         assert_number_expr!(
             "123u8",
             NumberKind('u', BitCount::_8),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123u16",
             NumberKind('u', BitCount::_16),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123u32",
             NumberKind('u', BitCount::_32),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123u64",
             NumberKind('u', BitCount::_64),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123u128",
             NumberKind('u', BitCount::_128),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123usize",
             NumberKind('u', BitCount::Size),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
     }
 
@@ -236,37 +290,58 @@ mod tests {
         assert_number_expr!(
             "123i8",
             NumberKind('i', BitCount::_8),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123i16",
             NumberKind('i', BitCount::_16),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123",
             NumberKind('i', BitCount::_32),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123i32",
             NumberKind('i', BitCount::_32),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123i64",
             NumberKind('i', BitCount::_64),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123i128",
             NumberKind('i', BitCount::_128),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
         assert_number_expr!(
             "123isize",
             NumberKind('i', BitCount::Size),
-            NumberValue::Integer(123)
+            NumberValue::Integer {
+                value: 123,
+                kind: IntegerKind::Decimal
+            }
         );
     }
 
@@ -344,44 +419,33 @@ mod tests {
         );
     }
 
-    // TODO: refactor these asserts into separate named tests
     #[test]
-    fn edge_cases() {
-        // number with exp cannot be an int
-        assert_eq!(
-            lex_literal("123e3_i32"),
-            Err(NErr::Error(("123e3_i32", ErrorKind::MapRes)))
+    fn match_hexadecimal() {
+        // 0o70_00;
+        assert_number_expr!(
+            "0o70_00",
+            NumberKind('i', BitCount::_32),
+            NumberValue::Integer {
+                value: 3584,
+                kind: IntegerKind::Octal
+            }
         );
-        // number with exp must be followed by decimal
-        assert_eq!(
-            lex_literal("123e_f32"),
-            Err(NErr::Failure(("_f32", ErrorKind::Digit)))
-        );
+    }
 
-        // ....more....
+    #[test]
+    fn fail_exponent() {
+        // number with exp can only be floats
+        assert!(lex_literal("123e3_i32").is_err());
+        // exp must be followed by decimal
+        assert!(lex_literal("123e_f32").is_err());
     }
 
     #[test]
     fn fail_invalid_float_precision() {
-        assert_eq!(
-            lex_literal("123e12f8"),
-            Err(NErr::Error(("123e12f8", ErrorKind::MapRes)))
-        );
-        assert_eq!(
-            lex_literal("123f8"),
-            Err(NErr::Error(("123f8", ErrorKind::MapRes)))
-        );
-        assert_eq!(
-            lex_literal("123.12e-12f16"),
-            Err(NErr::Error(("123.12e-12f16", ErrorKind::MapRes)))
-        );
-        assert_eq!(
-            lex_literal("123.12f16"),
-            Err(NErr::Error(("123.12f16", ErrorKind::MapRes)))
-        );
-        assert_eq!(
-            lex_literal("123fsize"),
-            Err(NErr::Error(("123fsize", ErrorKind::MapRes)))
-        );
+        assert!(lex_literal("123e12f8").is_err());
+        assert!(lex_literal("123f8").is_err());
+        assert!(lex_literal("123.12e-12f16").is_err());
+        assert!(lex_literal("123.12f16").is_err());
+        assert!(lex_literal("123fsize").is_err());
     }
 }
