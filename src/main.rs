@@ -1,5 +1,5 @@
 pub mod lexer;
 
 fn main() {
-    println!("{:?}", lexer::lex_operator(">="));
+    println!("{:?}", lexer::lex_operator(">=".into()));
 }

@@ -14,21 +14,21 @@ use nom::{
 };
 use thiserror::Error;
 
-use crate::lexer::LexerError;
+use crate::lexer::{LexerError, Span};
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Number {
     pub value: NumberValue,
     pub kind: NumberKind,
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum NumberValue {
     Integer { value: u128, kind: IntegerKind },
     Floating(f64),
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum IntegerKind {
     Decimal,
     Hexadecimal,
@@ -36,7 +36,7 @@ pub enum IntegerKind {
     Binary,
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct NumberKind(pub char, pub BitCount);
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
@@ -88,49 +88,49 @@ fn desugar(i: &str) -> String {
     i.replace('_', "")
 }
 
-fn lex_hexadecimal(i: &str) -> IResult<&str, &str, LexerError> {
-    recognize(tuple((
+fn lex_hexadecimal(i: Span) -> IResult<Span, &str, LexerError> {
+    map(recognize(tuple((
         alt((tag("0x"), tag("0X"))),
         many0(char('_')),
         pair(hex_digit1, many0(alt((hex_digit1, tag("_"))))),
-    )))(i)
+    ))), |s: Span| s.into_fragment())(i)
 }
 
-fn lex_octal(i: &str) -> IResult<&str, &str, LexerError> {
-    recognize(tuple((
+fn lex_octal(i: Span) -> IResult<Span, &str, LexerError> {
+    map(recognize(tuple((
         alt((tag("0o"), tag("0O"))),
         many0(char('_')),
         pair(oct_digit1, many0(alt((oct_digit1, tag("_"))))),
-    )))(i)
+    ))), |s: Span| s.into_fragment())(i)
 }
 
-fn lex_binary(i: &str) -> IResult<&str, &str, LexerError> {
-    recognize(tuple((
+fn lex_binary(i: Span) -> IResult<Span, &str, LexerError> {
+    map(recognize(tuple((
         alt((tag("0b"), tag("0B"))),
         many0(char('_')),
         many1(terminated(one_of("01"), many0(char('_')))),
-    )))(i)
+    ))), |s: Span| s.into_fragment())(i)
 }
 
-fn lex_decimal(i: &str) -> IResult<&str, &str, LexerError> {
-    recognize(pair(digit1, many0(alt((digit1, tag("_"))))))(i)
+fn lex_decimal(i: Span) -> IResult<Span, &str, LexerError> {
+    map(recognize(pair(digit1, many0(alt((digit1, tag("_")))))), |s: Span| s.into_fragment())(i)
 }
 
-fn lex_integer(i: &str) -> IResult<&str, String, LexerError> {
+fn lex_integer(i: Span) -> IResult<Span, String, LexerError> {
     map(
         alt((lex_hexadecimal, lex_octal, lex_binary, lex_decimal)),
         desugar,
     )(i)
 }
 
-fn lex_float(i: &str) -> IResult<&str, String, LexerError> {
+fn lex_float(i: Span) -> IResult<Span, String, LexerError> {
     map(
         separated_pair(lex_decimal, char('.'), cut(lex_decimal)),
         |(int_part, frac_part)| desugar(&format!("{int_part}.{frac_part}")),
     )(i)
 }
 
-fn lex_bit_count(i: &str) -> IResult<&str, BitCount, LexerError> {
+fn lex_bit_count(i: Span) -> IResult<Span, BitCount, LexerError> {
     alt((
         value(BitCount::_8, char('8')),
         value(BitCount::_16, tag("16")),
@@ -141,18 +141,18 @@ fn lex_bit_count(i: &str) -> IResult<&str, BitCount, LexerError> {
     ))(i)
 }
 
-fn lex_number_kind(i: &str) -> IResult<&str, NumberKind, LexerError> {
+fn lex_number_kind(i: Span) -> IResult<Span, NumberKind, LexerError> {
     map(
         pair(alt((char('f'), char('u'), char('i'))), lex_bit_count),
         |(c, b)| NumberKind(c, b),
     )(i)
 }
 
-fn lex_exponent(i: &str) -> IResult<&str, i64, LexerError> {
+fn lex_exponent(i: Span) -> IResult<Span, i64, LexerError> {
     map_res(
         tuple((one_of("eE"), opt(one_of("+-")), cut(lex_decimal))),
         |(_, sign, decimal)| {
-            let n = format!("{}{}", sign.unwrap_or('+'), desugar(&decimal));
+            let n = format!("{}{}", sign.unwrap_or('+'), desugar(decimal));
             n.parse::<i64>()
         },
     )(i)
@@ -220,7 +220,7 @@ fn parse_number(
     })
 }
 
-pub fn lex_number(i: &str) -> IResult<&str, Number, LexerError> {
+pub fn lex_number(i: Span) -> IResult<Span, Number, LexerError> {
     map_res(
         tuple((
             alt((lex_float, lex_integer)),
@@ -242,9 +242,9 @@ mod tests {
     macro_rules! assert_number_expr {
         ($n: expr, $kind: expr, $value: expr) => {
             assert_eq!(
-                lex_literal($n),
+                lex_literal($n.into()),
                 Ok((
-                    "",
+                    "".into(),
                     Literal::Number(Number {
                         kind: $kind,
                         value: $value
@@ -383,7 +383,7 @@ mod tests {
             NumberKind('f', BitCount::_64),
             NumberValue::Floating(42.42e2)
         );
-        // TODO: this doesn't work due to a overflow error (???)
+        // TODO: this doesn't work due to a precision error
         // assert_number_expr!(
         //     "42.42e42",
         //     NumberKind('f', BitCount::_64),
@@ -519,17 +519,17 @@ mod tests {
     #[test]
     fn fail_exponent() {
         // number with exp can only be floats
-        assert!(lex_literal("123e3_i32").is_err());
+        assert!(lex_literal("123e3_i32".into()).is_err());
         // exp must be followed by decimal
-        assert!(lex_literal("123e_f32").is_err());
+        assert!(lex_literal("123e_f32".into()).is_err());
     }
 
     #[test]
     fn fail_invalid_float_precision() {
-        assert!(lex_literal("123e12f8").is_err());
-        assert!(lex_literal("123f8").is_err());
-        assert!(lex_literal("123.12e-12f16").is_err());
-        assert!(lex_literal("123.12f16").is_err());
-        assert!(lex_literal("123fsize").is_err());
+        assert!(lex_literal("123e12f8".into()).is_err());
+        assert!(lex_literal("123f8".into()).is_err());
+        assert!(lex_literal("123.12e-12f16".into()).is_err());
+        assert!(lex_literal("123.12f16".into()).is_err());
+        assert!(lex_literal("123fsize".into()).is_err());
     }
 }

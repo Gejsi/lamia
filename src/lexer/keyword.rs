@@ -1,8 +1,8 @@
 use nom::{combinator::map, IResult};
 
-use super::{lex_identifier, LexerError};
+use super::{lex_identifier, LexerError, Span};
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum Keyword {
     Function,
     Let,
@@ -23,36 +23,38 @@ fn match_keyword(identifier: &str) -> Keyword {
     }
 }
 
-pub fn lex_keyword(i: &str) -> IResult<&str, Keyword, LexerError> {
+pub fn lex_keyword(i: Span) -> IResult<Span, Keyword, LexerError> {
     map(lex_identifier, match_keyword)(i)
 }
 
 #[cfg(test)]
 mod tests {
+    use nom_locate::LocatedSpan;
+
     use super::{lex_keyword, Keyword};
 
     #[test]
     fn match_function() {
-        assert_eq!(lex_keyword("fn"), Ok(("", Keyword::Function)));
+        assert_eq!(lex_keyword("fn".into()), Ok(("".into(), Keyword::Function)));
     }
 
     #[test]
     fn match_let() {
-        assert_eq!(lex_keyword("let"), Ok(("", Keyword::Let)));
+        assert_eq!(lex_keyword("let".into()), Ok(("".into(), Keyword::Let)));
     }
 
     #[test]
     fn match_if() {
-        assert_eq!(lex_keyword("if"), Ok(("", Keyword::If)));
+        assert_eq!(lex_keyword("if".into()), Ok(("", Keyword::If)));
     }
 
     #[test]
     fn match_else() {
-        assert_eq!(lex_keyword("else"), Ok(("", Keyword::Else)));
+        assert_eq!(lex_keyword("else".into()), Ok(("".into(), Keyword::Else)));
     }
 
     #[test]
     fn match_return() {
-        assert_eq!(lex_keyword("return"), Ok(("", Keyword::Return)));
+        assert_eq!(lex_keyword("return".into()), Ok(("".into(), Keyword::Return)));
     }
 }

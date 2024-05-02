@@ -1,12 +1,14 @@
 use super::{Identifier, Keyword, Literal, Operator};
+use nom_locate::LocatedSpan;
 
-#[derive(Debug, PartialEq, PartialOrd)]
+pub type Span<'a> = LocatedSpan<&'a str>;
+#[derive(Clone, Debug, PartialEq)]
 pub struct Token<'a> {
     pub kind: TokenKind<'a>,
-    pub position: (usize, usize),
+    pub position: Span<'a>,
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenKind<'a> {
     /// Unknown token, not expected by the lexer, e.g. "№"
     Illegal,
@@ -27,11 +29,11 @@ pub enum TokenKind<'a> {
 
     Group {
         delimiter: Delimiter,
-        tokens: &'a [Token<'a>],
+        tokens: Vec<Token<'a>>,
     },
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum Delimiter {
     Paren,
     Square,
