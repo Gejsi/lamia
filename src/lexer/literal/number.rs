@@ -9,7 +9,7 @@ use nom::{
     character::complete::{char, digit1, hex_digit1, oct_digit1, one_of},
     combinator::{cut, map, map_res, opt, recognize, value},
     multi::{many0, many1},
-    sequence::{pair, preceded, separated_pair, terminated, tuple},
+    sequence::{pair, separated_pair, terminated, tuple},
     IResult,
 };
 use thiserror::Error;
@@ -71,7 +71,7 @@ impl Display for NumberKind {
 
 #[derive(Error, Debug)]
 enum NumberParsingError {
-    #[error("Failed to parse to as an u64: {0}")]
+    #[error("Failed to parse to as an u128: {0}")]
     ParseIntegerError(#[from] ParseIntError),
 
     #[error("Failed to parse to as an f64: {0}")]
@@ -89,24 +89,27 @@ fn desugar(i: &str) -> String {
 }
 
 fn lex_hexadecimal(i: &str) -> IResult<&str, &str, LexerError> {
-    preceded(
+    recognize(tuple((
         alt((tag("0x"), tag("0X"))),
-        recognize(pair(hex_digit1, many0(alt((hex_digit1, tag("_")))))),
-    )(i)
+        many0(char('_')),
+        pair(hex_digit1, many0(alt((hex_digit1, tag("_"))))),
+    )))(i)
 }
 
 fn lex_octal(i: &str) -> IResult<&str, &str, LexerError> {
-    preceded(
+    recognize(tuple((
         alt((tag("0o"), tag("0O"))),
-        recognize(pair(oct_digit1, many0(alt((oct_digit1, tag("_")))))),
-    )(i)
+        many0(char('_')),
+        pair(oct_digit1, many0(alt((oct_digit1, tag("_"))))),
+    )))(i)
 }
 
 fn lex_binary(i: &str) -> IResult<&str, &str, LexerError> {
-    preceded(
+    recognize(tuple((
         alt((tag("0b"), tag("0B"))),
-        recognize(many1(terminated(one_of("01"), many0(char('_'))))),
-    )(i)
+        many0(char('_')),
+        many1(terminated(one_of("01"), many0(char('_')))),
+    )))(i)
 }
 
 fn lex_decimal(i: &str) -> IResult<&str, &str, LexerError> {
@@ -155,8 +158,6 @@ fn lex_exponent(i: &str) -> IResult<&str, i64, LexerError> {
     )(i)
 }
 
-// TODO: discriminate integer typed based on the prefix: i don't think this can be done right now
-// with this function as this may need to be refactored by taking a `value` type more complex than a simple `String`.
 fn parse_number(
     (value, exp, kind): (String, Option<i64>, Option<NumberKind>),
 ) -> Result<Number, NumberParsingError> {
@@ -166,13 +167,33 @@ fn parse_number(
             .parse::<f64>()
             .map(|f| NumberValue::Floating(f * (10f64.powi(exp.unwrap_or(0) as i32))))
             .map_err(NumberParsingError::ParseFloatingError),
-        _ => value
-            .parse::<u128>()
-            .map(|i| NumberValue::Integer {
-                value: i,
-                kind: IntegerKind::Decimal,
-            })
-            .map_err(NumberParsingError::ParseIntegerError),
+
+        // Otherwise, parse as an integer
+        _ => {
+            let val = if value.starts_with("0x") || value.starts_with("0X") {
+                u128::from_str_radix(&value[2..], 16).map(|i| NumberValue::Integer {
+                    value: i,
+                    kind: IntegerKind::Hexadecimal,
+                })
+            } else if value.starts_with("0o") || value.starts_with("0O") {
+                u128::from_str_radix(&value[2..], 8).map(|i| NumberValue::Integer {
+                    value: i,
+                    kind: IntegerKind::Octal,
+                })
+            } else if value.starts_with("0b") || value.starts_with("0B") {
+                u128::from_str_radix(&value[2..], 2).map(|i| NumberValue::Integer {
+                    value: i,
+                    kind: IntegerKind::Binary,
+                })
+            } else {
+                value.parse::<u128>().map(|i| NumberValue::Integer {
+                    value: i,
+                    kind: IntegerKind::Decimal,
+                })
+            };
+
+            val.map_err(NumberParsingError::ParseIntegerError)
+        }
     }?;
 
     let parsed_kind = match (exp, kind) {
@@ -420,14 +441,77 @@ mod tests {
     }
 
     #[test]
-    fn match_hexadecimal() {
-        // 0o70_00;
+    fn match_hexidecimal() {
         assert_number_expr!(
-            "0o70_00",
+            "0x_1ab",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
-                value: 3584,
+                value: 0x_1ab,
+                kind: IntegerKind::Hexadecimal
+            }
+        );
+        assert_number_expr!(
+            "0X1AB",
+            NumberKind('i', BitCount::_32),
+            NumberValue::Integer {
+                value: 0x1AB,
+                kind: IntegerKind::Hexadecimal
+            }
+        );
+        assert_number_expr!(
+            "0x0",
+            NumberKind('i', BitCount::_32),
+            NumberValue::Integer {
+                value: 0x0,
+                kind: IntegerKind::Hexadecimal
+            }
+        );
+    }
+
+    #[test]
+    fn match_octal() {
+        assert_number_expr!(
+            "0o_7000",
+            NumberKind('i', BitCount::_32),
+            NumberValue::Integer {
+                value: 0o_7000,
                 kind: IntegerKind::Octal
+            }
+        );
+        assert_number_expr!(
+            "0O7000",
+            NumberKind('i', BitCount::_32),
+            NumberValue::Integer {
+                value: 0o7000,
+                kind: IntegerKind::Octal
+            }
+        );
+        assert_number_expr!(
+            "0o_123_456",
+            NumberKind('i', BitCount::_32),
+            NumberValue::Integer {
+                value: 0o_123_456,
+                kind: IntegerKind::Octal
+            }
+        );
+    }
+
+    #[test]
+    fn match_binary() {
+        assert_number_expr!(
+            "0b___01__010_10__",
+            NumberKind('i', BitCount::_32),
+            NumberValue::Integer {
+                value: 0b___01__010_10__,
+                kind: IntegerKind::Binary
+            }
+        );
+        assert_number_expr!(
+            "0B0101",
+            NumberKind('i', BitCount::_32),
+            NumberValue::Integer {
+                value: 0b0101,
+                kind: IntegerKind::Binary
             }
         );
     }
