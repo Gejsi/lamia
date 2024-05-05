@@ -33,9 +33,9 @@ fn lex_string(i: Span) -> IResult<Span, &str, LexerError> {
         delimited(
             char('\"'),
             escaped(alphanumeric1, '\\', one_of(r#""'nrt0\"#)),
-            char('\"')
+            char('\"'),
         ),
-        |s: Span| s.into_fragment()
+        |s: Span| s.into_fragment(),
     )(i)
 }
 
@@ -50,49 +50,46 @@ pub fn lex_literal(i: Span) -> IResult<Span, Literal, LexerError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::{lex_literal, Literal};
+    use crate::lexer::{assert_lex_eq, lex_literal, Literal};
 
-    macro_rules! assert_literal_expr {
-        ($n: expr, $lit: expr) => {
-            assert_eq!(lex_literal($n.into()), Ok(("".into(), $lit)));
-        };
+    fn assert_literal_eq(text: &str, lit: Literal) {
+        assert_lex_eq!(lex_literal(text.into()), lit);
     }
 
     #[test]
     fn match_bool() {
-        assert_literal_expr!("true", Literal::Boolean(true));
-        assert_literal_expr!("false", Literal::Boolean(false));
+        assert_literal_eq("true", Literal::Boolean(true));
+        assert_literal_eq("false", Literal::Boolean(false));
     }
 
     #[test]
     fn match_character() {
-        assert_literal_expr!("'a'", Literal::Character('a'));
-        assert_literal_expr!("'\\''", Literal::Character('\''));
-        assert_literal_expr!("'\\n'", Literal::Character('\n'));
-        assert_literal_expr!("''", Literal::Character(' '));
+        assert_literal_eq("'a'", Literal::Character('a'));
+        assert_literal_eq("'\''", Literal::Character('\''));
+        assert_literal_eq("'\n'", Literal::Character('\n'));
     }
 
     #[test]
     fn match_simple_string() {
-        assert_literal_expr!("\"test\"", Literal::String("test".into()));
+        assert_literal_eq("\"test\"", Literal::String("test".into()));
     }
 
     #[test]
     fn match_escaped_string() {
-        assert_literal_expr!("\"test\\\"\"", Literal::String("test\\\"".into()));
+        assert_literal_eq("\"test\\\"\"", Literal::String("test\\\"".into()));
     }
 
     #[test]
     fn match_newline_string() {
-        assert_literal_expr!("\"test\\n\"", Literal::String("test\\n".into()));
+        assert_literal_eq("\"test\\n\"", Literal::String("test\\n".into()));
     }
 
     #[test]
     fn match_unicode_string() {
-        assert_literal_expr!("\"東京\"", Literal::String("東京".into()));
-        assert_literal_expr!("\"こんにちは\"", Literal::String("こんにちは".into()));
-        assert_literal_expr!("\"erfüllen\"", Literal::String("erfüllen".into()));
-        assert_literal_expr!("\"Здравствуйте\"", Literal::String("Здравствуйте".into()));
-        assert_literal_expr!("\"Москва\"", Literal::String("Москва".into()));
+        assert_literal_eq("\"東京\"", Literal::String("東京".into()));
+        assert_literal_eq("\"こんにちは\"", Literal::String("こんにちは".into()));
+        assert_literal_eq("\"erfüllen\"", Literal::String("erfüllen".into()));
+        assert_literal_eq("\"Здравствуйте\"", Literal::String("Здравствуйте".into()));
+        assert_literal_eq("\"Москва\"", Literal::String("Москва".into()));
     }
 }

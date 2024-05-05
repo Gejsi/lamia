@@ -89,31 +89,43 @@ fn desugar(i: &str) -> String {
 }
 
 fn lex_hexadecimal(i: Span) -> IResult<Span, &str, LexerError> {
-    map(recognize(tuple((
-        alt((tag("0x"), tag("0X"))),
-        many0(char('_')),
-        pair(hex_digit1, many0(alt((hex_digit1, tag("_"))))),
-    ))), |s: Span| s.into_fragment())(i)
+    map(
+        recognize(tuple((
+            alt((tag("0x"), tag("0X"))),
+            many0(char('_')),
+            pair(hex_digit1, many0(alt((hex_digit1, tag("_"))))),
+        ))),
+        |s: Span| s.into_fragment(),
+    )(i)
 }
 
 fn lex_octal(i: Span) -> IResult<Span, &str, LexerError> {
-    map(recognize(tuple((
-        alt((tag("0o"), tag("0O"))),
-        many0(char('_')),
-        pair(oct_digit1, many0(alt((oct_digit1, tag("_"))))),
-    ))), |s: Span| s.into_fragment())(i)
+    map(
+        recognize(tuple((
+            alt((tag("0o"), tag("0O"))),
+            many0(char('_')),
+            pair(oct_digit1, many0(alt((oct_digit1, tag("_"))))),
+        ))),
+        |s: Span| s.into_fragment(),
+    )(i)
 }
 
 fn lex_binary(i: Span) -> IResult<Span, &str, LexerError> {
-    map(recognize(tuple((
-        alt((tag("0b"), tag("0B"))),
-        many0(char('_')),
-        many1(terminated(one_of("01"), many0(char('_')))),
-    ))), |s: Span| s.into_fragment())(i)
+    map(
+        recognize(tuple((
+            alt((tag("0b"), tag("0B"))),
+            many0(char('_')),
+            many1(terminated(one_of("01"), many0(char('_')))),
+        ))),
+        |s: Span| s.into_fragment(),
+    )(i)
 }
 
 fn lex_decimal(i: Span) -> IResult<Span, &str, LexerError> {
-    map(recognize(pair(digit1, many0(alt((digit1, tag("_")))))), |s: Span| s.into_fragment())(i)
+    map(
+        recognize(pair(digit1, many0(alt((digit1, tag("_")))))),
+        |s: Span| s.into_fragment(),
+    )(i)
 }
 
 fn lex_integer(i: Span) -> IResult<Span, String, LexerError> {
@@ -234,285 +246,277 @@ pub fn lex_number(i: Span) -> IResult<Span, Number, LexerError> {
 #[cfg(test)]
 mod tests {
     use crate::lexer::{
-        lex_literal,
+        assert_lex_eq, lex_literal,
         literal::number::{BitCount, IntegerKind, Number, NumberKind, NumberValue},
         Literal,
     };
 
-    macro_rules! assert_number_expr {
-        ($n: expr, $kind: expr, $value: expr) => {
-            assert_eq!(
-                lex_literal($n.into()),
-                Ok((
-                    "".into(),
-                    Literal::Number(Number {
-                        kind: $kind,
-                        value: $value
-                    })
-                ))
-            );
-        };
+    fn assert_number_eq(text: &str, kind: NumberKind, value: NumberValue) {
+        assert_lex_eq!(
+            lex_literal(text.into()),
+            Literal::Number(Number { value, kind })
+        );
     }
 
     #[test]
     fn match_unsigned_integers() {
-        assert_number_expr!(
+        assert_number_eq(
             "123u8",
             NumberKind('u', BitCount::_8),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123u16",
             NumberKind('u', BitCount::_16),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123u32",
             NumberKind('u', BitCount::_32),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123u64",
             NumberKind('u', BitCount::_64),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123u128",
             NumberKind('u', BitCount::_128),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123usize",
             NumberKind('u', BitCount::Size),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
     }
 
     #[test]
     fn match_signed_integers() {
-        assert_number_expr!(
+        assert_number_eq(
             "123i8",
             NumberKind('i', BitCount::_8),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123i16",
             NumberKind('i', BitCount::_16),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123i32",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123i64",
             NumberKind('i', BitCount::_64),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123i128",
             NumberKind('i', BitCount::_128),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123isize",
             NumberKind('i', BitCount::Size),
             NumberValue::Integer {
                 value: 123,
-                kind: IntegerKind::Decimal
-            }
+                kind: IntegerKind::Decimal,
+            },
         );
     }
 
     #[test]
     fn match_f64() {
-        assert_number_expr!(
+        assert_number_eq(
             "123_100.0",
             NumberKind('f', BitCount::_64),
-            NumberValue::Floating(123_100.0)
+            NumberValue::Floating(123_100.0),
         );
-        assert_number_expr!(
+        assert_number_eq(
             "42e42",
             NumberKind('f', BitCount::_64),
-            NumberValue::Floating(42e42)
+            NumberValue::Floating(42e42),
         );
-        assert_number_expr!(
+        assert_number_eq(
             "42.42e2",
             NumberKind('f', BitCount::_64),
-            NumberValue::Floating(42.42e2)
+            NumberValue::Floating(42.42e2),
         );
         // TODO: this doesn't work due to a precision error
-        // assert_number_expr!(
+        // assert_number_eq(
         //     "42.42e42",
         //     NumberKind('f', BitCount::_64),
         //     NumberValue::Floating(42.42e42)
         // );
-        assert_number_expr!(
+        assert_number_eq(
             "123.23f64",
             NumberKind('f', BitCount::_64),
-            NumberValue::Floating(123.23)
+            NumberValue::Floating(123.23),
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123.23e10f64",
             NumberKind('f', BitCount::_64),
-            NumberValue::Floating(123.23e10)
+            NumberValue::Floating(123.23e10),
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123.23E10f64",
             NumberKind('f', BitCount::_64),
-            NumberValue::Floating(123.23E10)
+            NumberValue::Floating(123.23E10),
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123.23e10",
             NumberKind('f', BitCount::_64),
-            NumberValue::Floating(123.23e10)
+            NumberValue::Floating(123.23e10),
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123E10",
             NumberKind('f', BitCount::_64),
-            NumberValue::Floating(123E10)
+            NumberValue::Floating(123E10),
         );
     }
 
     #[test]
     fn match_f32() {
-        assert_number_expr!(
+        assert_number_eq(
             "123f32",
             NumberKind('f', BitCount::_32),
-            NumberValue::Floating(123.0)
+            NumberValue::Floating(123.0),
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123.23f32",
             NumberKind('f', BitCount::_32),
-            NumberValue::Floating(123.23)
+            NumberValue::Floating(123.23),
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123.23e10f32",
             NumberKind('f', BitCount::_32),
-            NumberValue::Floating(123.23e10)
+            NumberValue::Floating(123.23e10),
         );
-        assert_number_expr!(
+        assert_number_eq(
             "123.23E10f32",
             NumberKind('f', BitCount::_32),
-            NumberValue::Floating(123.23E10)
+            NumberValue::Floating(123.23E10),
         );
     }
 
     #[test]
     fn match_hexidecimal() {
-        assert_number_expr!(
+        assert_number_eq(
             "0x_1ab",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
                 value: 0x_1ab,
-                kind: IntegerKind::Hexadecimal
-            }
+                kind: IntegerKind::Hexadecimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "0X1AB",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
                 value: 0x1AB,
-                kind: IntegerKind::Hexadecimal
-            }
+                kind: IntegerKind::Hexadecimal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "0x0",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
                 value: 0x0,
-                kind: IntegerKind::Hexadecimal
-            }
+                kind: IntegerKind::Hexadecimal,
+            },
         );
     }
 
     #[test]
     fn match_octal() {
-        assert_number_expr!(
+        assert_number_eq(
             "0o_7000",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
                 value: 0o_7000,
-                kind: IntegerKind::Octal
-            }
+                kind: IntegerKind::Octal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "0O7000",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
                 value: 0o7000,
-                kind: IntegerKind::Octal
-            }
+                kind: IntegerKind::Octal,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "0o_123_456",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
                 value: 0o_123_456,
-                kind: IntegerKind::Octal
-            }
+                kind: IntegerKind::Octal,
+            },
         );
     }
 
     #[test]
     fn match_binary() {
-        assert_number_expr!(
+        assert_number_eq(
             "0b___01__010_10__",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
                 value: 0b___01__010_10__,
-                kind: IntegerKind::Binary
-            }
+                kind: IntegerKind::Binary,
+            },
         );
-        assert_number_expr!(
+        assert_number_eq(
             "0B0101",
             NumberKind('i', BitCount::_32),
             NumberValue::Integer {
                 value: 0b0101,
-                kind: IntegerKind::Binary
-            }
+                kind: IntegerKind::Binary,
+            },
         );
     }
 

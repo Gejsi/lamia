@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{alpha1, alphanumeric1},
-    combinator::{recognize, map},
+    combinator::{map, recognize},
     multi::many0,
     sequence::pair,
     IResult,
@@ -14,36 +14,45 @@ use super::{LexerError, Span};
 pub type Identifier<'a> = &'a str;
 
 pub fn lex_identifier(i: Span) -> IResult<Span, Identifier, LexerError> {
-    map(recognize(pair(
-        alt((alpha1, tag("_"))),
-        many0(alt((alphanumeric1, tag("_")))),
-    )), |s: Span| s.into_fragment())(i)
+    map(
+        recognize(pair(
+            alt((alpha1, tag("_"))),
+            many0(alt((alphanumeric1, tag("_")))),
+        )),
+        |s: Span| s.into_fragment(),
+    )(i)
 }
 
 #[cfg(test)]
 mod tests {
     use nom::{error::ErrorKind, Err as NErr};
 
+    use crate::lexer::assert_lex_eq;
+
     use super::lex_identifier;
+
+    fn assert_identifier(text: &str) {
+        assert_lex_eq!(lex_identifier(text.into()), text);
+    }
 
     #[test]
     fn match_simple_identifier() {
-        assert_eq!(lex_identifier("varname".into()), Ok(("".into(), "varname".into())));
+        assert_identifier("varname");
     }
 
     #[test]
     fn match_underscore_identifier() {
-        assert_eq!(lex_identifier("var_name".into()), Ok(("".into(), "var_name".into())));
+        assert_identifier("var_name");
     }
 
     #[test]
     fn match_number_identifier() {
-        assert_eq!(lex_identifier("var_name1".into()), Ok(("".into(), "var_name1".into())));
+        assert_identifier("var_name1");
     }
 
     #[test]
     fn match_indentifier_starting_underscore() {
-        assert_eq!(lex_identifier("_var_name".into()), Ok(("".into(), "_var_name".into())));
+        assert_identifier("_var_name");
     }
 
     #[test]

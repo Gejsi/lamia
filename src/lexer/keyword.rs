@@ -29,32 +29,36 @@ pub fn lex_keyword(i: Span) -> IResult<Span, Keyword, LexerError> {
 
 #[cfg(test)]
 mod tests {
-    use nom_locate::LocatedSpan;
+    use crate::lexer::assert_lex_eq;
 
     use super::{lex_keyword, Keyword};
 
+    fn assert_keyword_eq(text: &str, keyword: Keyword) {
+        assert_lex_eq!(lex_keyword(text.into()), keyword);
+    }
+
     #[test]
     fn match_function() {
-        assert_eq!(lex_keyword("fn".into()), Ok(("".into(), Keyword::Function)));
+        assert_keyword_eq("fn", Keyword::Function);
     }
 
     #[test]
     fn match_let() {
-        assert_eq!(lex_keyword("let".into()), Ok(("".into(), Keyword::Let)));
+        assert_keyword_eq("let", Keyword::Let);
     }
 
     #[test]
     fn match_if() {
-        assert_eq!(lex_keyword("if".into()), Ok(("", Keyword::If)));
+        assert_keyword_eq("if", Keyword::If);
     }
 
     #[test]
     fn match_else() {
-        assert_eq!(lex_keyword("else".into()), Ok(("".into(), Keyword::Else)));
+        assert_keyword_eq("else", Keyword::Else);
     }
 
     #[test]
     fn match_return() {
-        assert_eq!(lex_keyword("return".into()), Ok(("".into(), Keyword::Return)));
+        assert_keyword_eq("return", Keyword::Return);
     }
 }
