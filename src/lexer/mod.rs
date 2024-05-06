@@ -35,4 +35,3 @@ pub(crate) use assert_lex_eq;
 pub fn lexer(i: Span) -> IResult<Span, &Token, LexerError> {
     todo!()
 }
-
