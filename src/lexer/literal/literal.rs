@@ -85,7 +85,8 @@ pub fn lex_literal(i: Span) -> IResult<Span, Literal, LexerError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::{assert_lex_eq, lex_literal, Literal};
+    use crate::assert_lex_eq;
+    use crate::lexer::{lex_literal, Literal};
 
     macro_rules! assert_literal_eq {
         ($text: expr, $lit: expr) => {

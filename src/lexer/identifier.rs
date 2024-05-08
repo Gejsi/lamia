@@ -26,7 +26,7 @@ pub fn lex_identifier(i: Span) -> IResult<Span, Identifier, LexerError> {
 mod tests {
     use nom::{error::ErrorKind, Err as NErr};
 
-    use crate::lexer::assert_lex_eq;
+    use crate::assert_lex_eq;
 
     use super::lex_identifier;
 

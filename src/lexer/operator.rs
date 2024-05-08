@@ -65,7 +65,7 @@ pub fn lex_operator(i: Span) -> IResult<Span, Operator, LexerError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::assert_lex_eq;
+    use crate::assert_lex_eq;
 
     use super::{lex_operator, Operator};
 

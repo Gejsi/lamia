@@ -245,8 +245,9 @@ pub fn lex_number(i: Span) -> IResult<Span, Number, LexerError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::assert_lex_eq;
     use crate::lexer::{
-        assert_lex_eq, lex_literal,
+        lex_literal,
         literal::number::{BitCount, IntegerKind, Number, NumberKind, NumberValue},
         Literal,
     };

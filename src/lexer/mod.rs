@@ -17,22 +17,15 @@ pub use operator::{lex_operator, Operator};
 pub use syntax::{lex_colon, lex_comma, lex_semicolon};
 pub use token::{Delimiter, Span, Token, TokenKind};
 
+#[macro_export]
 macro_rules! assert_lex_eq {
     ($fn: expr, $lit: expr) => {
         assert_eq!(
             $fn.map(|(span, rest)| { (span.into_fragment(), rest) }),
             Ok(("", $lit))
         );
-        // match $fn {
-        //     Ok((span, rest)) => {}
-        //     Err(err) => {
-        //         assert!(false, "{err}");
-        //     }
-        // }
     };
 }
-
-pub(crate) use assert_lex_eq;
 
 pub fn lexer(i: Span) -> IResult<Span, &Token, LexerError> {
     todo!()

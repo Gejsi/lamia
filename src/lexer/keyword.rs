@@ -29,7 +29,7 @@ pub fn lex_keyword(i: Span) -> IResult<Span, Keyword, LexerError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::assert_lex_eq;
+    use crate::assert_lex_eq;
 
     use super::{lex_keyword, Keyword};
 
