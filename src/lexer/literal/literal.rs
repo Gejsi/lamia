@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
     bytes::complete::{escaped_transform, tag, take_while_m_n},
-    character::complete::{anychar, char},
+    character::complete::{anychar, char, multispace1},
     combinator::{map, map_opt, map_res, value},
     sequence::{delimited, preceded},
     IResult,
@@ -49,17 +49,13 @@ fn lex_string(i: Span) -> IResult<Span, String, LexerError> {
     delimited(
         char('\"'),
         escaped_transform(
-            alphanumeric1,
+            alt((multispace1, alphanumeric1)),
             '\\',
             alt((
                 escape_unicode,
                 value('\n', char('n')),
                 value('\r', char('r')),
                 value('\t', char('t')),
-                value('\x07', char('a')),
-                value('\x08', char('b')),
-                value('\x0B', char('v')),
-                value('\x0C', char('f')),
                 value('\\', char('\\')),
                 value('/', char('/')),
                 value('"', char('"')),
@@ -132,6 +128,12 @@ mod tests {
 
     #[test]
     fn match_whitespace_string() {
-        // todo!()
+        assert_literal_eq("\"     \"", Literal::String("     ".into()));
+        assert_literal_eq(
+            "\" This is a test \"",
+            Literal::String(" This is a test ".into()),
+        );
+        assert_literal_eq("\"test \"", Literal::String("test ".into()));
+        assert_literal_eq("\" test\"", Literal::String(" test".into()));
     }
 }
