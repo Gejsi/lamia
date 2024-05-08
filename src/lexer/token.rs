@@ -15,7 +15,7 @@ pub enum TokenKind<'a> {
     Eof,
 
     Identifier(Identifier<'a>),
-    Literal(Literal<'a>),
+    Literal(Literal),
     Operator(Operator),
     Keyword(Keyword),
 
@@ -39,4 +39,3 @@ pub enum Delimiter {
     Square,
     Brace,
 }
-

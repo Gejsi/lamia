@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
-    bytes::complete::{escaped, tag, take_while_m_n},
-    character::complete::{anychar, char, one_of},
+    bytes::complete::{escaped_transform, tag, take_while_m_n},
+    character::complete::{anychar, char},
     combinator::{map, map_opt, map_res, value},
     sequence::{delimited, preceded},
     IResult,
@@ -13,8 +13,8 @@ use crate::lexer::{LexerError, Span};
 use super::number::{lex_number, Number};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
-pub enum Literal<'a> {
-    String(&'a str),
+pub enum Literal {
+    String(String),
     Character(char),
     Boolean(bool),
     Number(Number),
@@ -45,18 +45,27 @@ fn escape_unicode(i: Span) -> IResult<Span, char, LexerError> {
     map_opt(parse_u32, std::char::from_u32)(i)
 }
 
-fn lex_string(i: Span) -> IResult<Span, &str, LexerError> {
-    map(
-        delimited(
-            char('\"'),
-            escaped(
-                alphanumeric1,
-                '\\',
-                alt((escape_unicode, one_of(r#""'nrt0\"#))),
-            ),
-            char('\"'),
+fn lex_string(i: Span) -> IResult<Span, String, LexerError> {
+    delimited(
+        char('\"'),
+        escaped_transform(
+            alphanumeric1,
+            '\\',
+            alt((
+                escape_unicode,
+                value('\n', char('n')),
+                value('\r', char('r')),
+                value('\t', char('t')),
+                value('\x07', char('a')),
+                value('\x08', char('b')),
+                value('\x0B', char('v')),
+                value('\x0C', char('f')),
+                value('\\', char('\\')),
+                value('/', char('/')),
+                value('"', char('"')),
+            )),
         ),
-        |s: Span| s.into_fragment(),
+        char('\"'),
     )(i)
 }
 
@@ -94,30 +103,35 @@ mod tests {
 
     #[test]
     fn match_simple_string() {
-        assert_literal_eq("\"test\"", Literal::String("test"));
+        assert_literal_eq("\"test\"", Literal::String("test".into()));
     }
 
     #[test]
     fn match_escaped_string() {
-        assert_literal_eq("\"test\\\"\"", Literal::String("test\\\""));
-    }
-
-    #[test]
-    fn match_newline_string() {
-        assert_literal_eq("\"test\\n\"", Literal::String("test\\n"));
+        assert_literal_eq("\"test\\\"\"", Literal::String("test\"".into()));
+        assert_literal_eq("\"12\\\"34\"", Literal::String("12\"34".into()));
+        assert_literal_eq("\"hello\\nworld\"", Literal::String("hello\nworld".into()));
     }
 
     #[test]
     fn match_unicode_string() {
-        assert_literal_eq("\"東京\"", Literal::String("東京"));
-        assert_literal_eq("\"こんにちは\"", Literal::String("こんにちは"));
-        assert_literal_eq("\"erfüllen\"", Literal::String("erfüllen"));
-        assert_literal_eq("\"Здравствуйте\"", Literal::String("Здравствуйте"));
-        assert_literal_eq(r#""Москва\u{1F605}""#, Literal::String("Москва\\u{1F605}"));
+        assert_literal_eq(r#""東京""#, Literal::String("東京".into()));
+        assert_literal_eq(r#""こんにちは""#, Literal::String("こんにちは".into()));
+        assert_literal_eq(r#""erfüllen""#, Literal::String("erfüllen".into()));
+        assert_literal_eq(r#""Здравствуйте""#, Literal::String("Здравствуйте".into()));
+        // println!("😄\u{09}\u{1F604}");
+        assert_literal_eq(
+            r#""\u{48}\u{65}\u{6C}\u{6C}\u{6F}""#,
+            Literal::String("Hello".into()),
+        );
+        assert_literal_eq(
+            r#""hello\u{1F600}world""#,
+            Literal::String("hello😀world".into()),
+        );
     }
 
     #[test]
     fn match_whitespace_string() {
-        todo!()
+        // todo!()
     }
 }
