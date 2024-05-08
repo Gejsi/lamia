@@ -10,7 +10,6 @@ use nom::{
 
 use super::{LexerError, Span};
 
-// TODO: bring back to a &'a str
 pub type Identifier<'a> = &'a str;
 
 pub fn lex_identifier(i: Span) -> IResult<Span, Identifier, LexerError> {
@@ -31,28 +30,24 @@ mod tests {
 
     use super::lex_identifier;
 
-    fn assert_identifier(text: &str) {
-        assert_lex_eq!(lex_identifier(text.into()), text);
-    }
-
     #[test]
     fn match_simple_identifier() {
-        assert_identifier("varname");
+        assert_lex_eq!(lex_identifier("varname".into()), "varname");
     }
 
     #[test]
     fn match_underscore_identifier() {
-        assert_identifier("var_name");
+        assert_lex_eq!(lex_identifier("var_name".into()), "var_name");
     }
 
     #[test]
     fn match_number_identifier() {
-        assert_identifier("var_name1");
+        assert_lex_eq!(lex_identifier("var_name1".into()), "var_name1");
     }
 
     #[test]
     fn match_indentifier_starting_underscore() {
-        assert_identifier("_var_name");
+        assert_lex_eq!(lex_identifier("_var_name".into()), "_var_name");
     }
 
     #[test]

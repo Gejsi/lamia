@@ -69,77 +69,79 @@ mod tests {
 
     use super::{lex_operator, Operator};
 
-    fn assert_operator_eq(text: &str, op: Operator) {
-        assert_lex_eq!(lex_operator(text.into()), op);
+    macro_rules! assert_operator_eq {
+        ($text: expr, $op: expr) => {
+            assert_lex_eq!(lex_operator($text.into()), $op);
+        };
     }
 
     #[test]
     fn match_plus() {
-        assert_operator_eq("+", Operator::Plus);
+        assert_operator_eq!("+", Operator::Plus);
     }
 
     #[test]
     fn match_minus() {
-        assert_operator_eq("-", Operator::Minus);
+        assert_operator_eq!("-", Operator::Minus);
     }
 
     #[test]
     fn match_bang() {
-        assert_operator_eq("!", Operator::Bang);
+        assert_operator_eq!("!", Operator::Bang);
     }
 
     #[test]
     fn match_star() {
-        assert_operator_eq("*", Operator::Star);
+        assert_operator_eq!("*", Operator::Star);
     }
 
     #[test]
     fn match_slash() {
-        assert_operator_eq("/", Operator::Slash);
+        assert_operator_eq!("/", Operator::Slash);
     }
 
     #[test]
     fn match_modulo() {
-        assert_operator_eq("%", Operator::Modulo);
+        assert_operator_eq!("%", Operator::Modulo);
     }
 
     #[test]
     fn match_equal() {
-        assert_operator_eq("==", Operator::Equal);
+        assert_operator_eq!("==", Operator::Equal);
     }
 
     #[test]
     fn match_not_equal() {
-        assert_operator_eq("!=", Operator::NotEqual);
+        assert_operator_eq!("!=", Operator::NotEqual);
     }
 
     #[test]
     fn match_less_than() {
-        assert_operator_eq("<", Operator::LessThan);
+        assert_operator_eq!("<", Operator::LessThan);
     }
 
     #[test]
     fn match_greater_than() {
-        assert_operator_eq(">", Operator::GreaterThan);
+        assert_operator_eq!(">", Operator::GreaterThan);
     }
 
     #[test]
     fn match_less_than_equal() {
-        assert_operator_eq("<=", Operator::LessThanEqual);
+        assert_operator_eq!("<=", Operator::LessThanEqual);
     }
 
     #[test]
     fn match_greater_than_equal() {
-        assert_operator_eq(">=", Operator::GreaterThanEqual);
+        assert_operator_eq!(">=", Operator::GreaterThanEqual);
     }
 
     #[test]
     fn match_logical_and() {
-        assert_operator_eq("&&", Operator::LogicalAnd);
+        assert_operator_eq!("&&", Operator::LogicalAnd);
     }
 
     #[test]
     fn match_logical_or() {
-        assert_operator_eq("||", Operator::LogicalOr);
+        assert_operator_eq!("||", Operator::LogicalOr);
     }
 }

@@ -19,14 +19,16 @@ pub use token::{Delimiter, Span, Token, TokenKind};
 
 macro_rules! assert_lex_eq {
     ($fn: expr, $lit: expr) => {
-        match $fn {
-            Ok((span, rest)) => {
-                assert_eq!((span.into_fragment(), rest), ("", $lit));
-            }
-            Err(err) => {
-                assert!(false, "{err}");
-            }
-        }
+        assert_eq!(
+            $fn.map(|(span, rest)| { (span.into_fragment(), rest) }),
+            Ok(("", $lit))
+        );
+        // match $fn {
+        //     Ok((span, rest)) => {}
+        //     Err(err) => {
+        //         assert!(false, "{err}");
+        //     }
+        // }
     };
 }
 

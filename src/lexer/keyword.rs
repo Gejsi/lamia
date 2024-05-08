@@ -33,32 +33,34 @@ mod tests {
 
     use super::{lex_keyword, Keyword};
 
-    fn assert_keyword_eq(text: &str, keyword: Keyword) {
-        assert_lex_eq!(lex_keyword(text.into()), keyword);
+    macro_rules! assert_keyword_eq {
+        ($text: expr, $kwd: expr) => {
+            assert_lex_eq!(lex_keyword($text.into()), $kwd);
+        };
     }
 
     #[test]
     fn match_function() {
-        assert_keyword_eq("fn", Keyword::Function);
+        assert_keyword_eq!("fn", Keyword::Function);
     }
 
     #[test]
     fn match_let() {
-        assert_keyword_eq("let", Keyword::Let);
+        assert_keyword_eq!("let", Keyword::Let);
     }
 
     #[test]
     fn match_if() {
-        assert_keyword_eq("if", Keyword::If);
+        assert_keyword_eq!("if", Keyword::If);
     }
 
     #[test]
     fn match_else() {
-        assert_keyword_eq("else", Keyword::Else);
+        assert_keyword_eq!("else", Keyword::Else);
     }
 
     #[test]
     fn match_return() {
-        assert_keyword_eq("return", Keyword::Return);
+        assert_keyword_eq!("return", Keyword::Return);
     }
 }
