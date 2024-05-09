@@ -1,4 +1,4 @@
-use super::{Identifier, Keyword, Literal, Operator};
+use super::{Comment, Identifier, Keyword, Literal, Operator};
 use nom_locate::LocatedSpan;
 
 pub type Span<'a> = LocatedSpan<&'a str>;
@@ -18,6 +18,7 @@ pub enum TokenKind<'a> {
     Literal(Literal),
     Operator(Operator),
     Keyword(Keyword),
+    Comment(Comment<'a>),
 
     Assign {
         operator: Option<Operator>,

@@ -1,5 +1,6 @@
 use nom::IResult;
 
+pub mod comment;
 pub mod error;
 pub mod identifier;
 pub mod keyword;
@@ -10,6 +11,7 @@ pub mod token;
 
 pub use error::LexerError;
 
+pub use comment::{lex_comment, Comment};
 pub use identifier::{lex_identifier, Identifier};
 pub use keyword::{lex_keyword, Keyword};
 pub use literal::{lex_literal, Literal};

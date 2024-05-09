@@ -76,10 +76,10 @@ fn lex_string(i: Span) -> IResult<Span, String, LexerError> {
 
 pub fn lex_literal(i: Span) -> IResult<Span, Literal, LexerError> {
     alt((
-        map(lex_string, Literal::String),
         map(lex_boolean, Literal::Boolean),
-        map(lex_character, Literal::Character),
         map(lex_number, Literal::Number),
+        map(lex_character, Literal::Character),
+        map(lex_string, Literal::String),
     ))(i)
 }
 
