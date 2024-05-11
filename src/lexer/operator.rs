@@ -1,4 +1,4 @@
-use nom::{branch::alt, bytes::complete::tag, combinator::map, IResult};
+use nom::{branch::alt, bytes::complete::tag, combinator::value, IResult};
 
 use super::{LexerError, Span};
 
@@ -21,46 +21,23 @@ pub enum Operator {
     LogicalOr,
 }
 
-fn match_operator(identifier: Span) -> Operator {
-    match identifier.to_string().as_str() {
-        "+" => Operator::Plus,
-        "-" => Operator::Minus,
-        "!" => Operator::Bang,
-        "*" => Operator::Star,
-        "/" => Operator::Slash,
-        "%" => Operator::Modulo,
-        "==" => Operator::Equal,
-        "!=" => Operator::NotEqual,
-        "<" => Operator::LessThan,
-        ">" => Operator::GreaterThan,
-        "<=" => Operator::LessThanEqual,
-        ">=" => Operator::GreaterThanEqual,
-        "&&" => Operator::LogicalAnd,
-        "||" => Operator::LogicalOr,
-        _ => unreachable!(),
-    }
-}
-
 pub fn lex_operator(i: Span) -> IResult<Span, Operator, LexerError> {
-    map(
-        alt((
-            tag("!="),
-            tag(">="),
-            tag("<="),
-            tag("=="),
-            tag("&&"),
-            tag("||"),
-            tag("+"),
-            tag("-"),
-            tag("!"),
-            tag("*"),
-            tag("/"),
-            tag("%"),
-            tag("<"),
-            tag(">"),
-        )),
-        match_operator,
-    )(i)
+    alt((
+        value(Operator::Equal, tag("==")),
+        value(Operator::NotEqual, tag("!=")),
+        value(Operator::GreaterThanEqual, tag(">=")),
+        value(Operator::LessThanEqual, tag("<=")),
+        value(Operator::LogicalAnd, tag("&&")),
+        value(Operator::LogicalOr, tag("||")),
+        value(Operator::Plus, tag("+")),
+        value(Operator::Minus, tag("-")),
+        value(Operator::Bang, tag("!")),
+        value(Operator::Star, tag("*")),
+        value(Operator::Slash, tag("/")),
+        value(Operator::Modulo, tag("%")),
+        value(Operator::LessThan, tag("<")),
+        value(Operator::GreaterThan, tag(">")),
+    ))(i)
 }
 
 #[cfg(test)]

@@ -1,28 +1,17 @@
-use nom::{
-    character::complete::char,
-    combinator::{map, value},
-    multi::many0,
-    sequence::delimited,
-    IResult,
-};
+use nom::{character::complete::char, combinator::map, multi::many0, sequence::delimited, IResult};
 
-use super::{lexer, Delimiter, LexerError, Span, TokenKind};
+use super::{lexer, LexerError, Span, TokenKind};
 
-pub fn lex_comma(i: Span) -> IResult<Span, TokenKind, LexerError> {
-    value(TokenKind::Comma, char(','))(i)
-}
-
-pub fn lex_semicolon(i: Span) -> IResult<Span, TokenKind, LexerError> {
-    value(TokenKind::Semicolon, char(';'))(i)
-}
-
-pub fn lex_colon(i: Span) -> IResult<Span, TokenKind, LexerError> {
-    value(TokenKind::Colon, char(','))(i)
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+pub enum Delimiter {
+    Paren,
+    Square,
+    Brace,
 }
 
 macro_rules! generate_lex_group {
     ($name: ident, $openc: expr, $closec: expr, $delim: expr) => {
-        fn $name(i: Span) -> IResult<Span, TokenKind, LexerError> {
+        pub fn $name(i: Span) -> IResult<Span, TokenKind, LexerError> {
             map(
                 delimited(char($openc), many0(lexer), char($closec)),
                 |tokens| TokenKind::Group {
@@ -37,5 +26,3 @@ macro_rules! generate_lex_group {
 generate_lex_group!(lex_group_paren, '(', ')', Delimiter::Paren);
 generate_lex_group!(lex_group_square, '[', ']', Delimiter::Square);
 generate_lex_group!(lex_group_brace, '{', '}', Delimiter::Brace);
-
-
