@@ -49,8 +49,6 @@ pub enum Number<'source> {
     OctalInteger(&'source str),
     BinaryInteger(&'source str),
 
-    // NOTE: Not sure we want to keep the sign in the float regexp, other
-    // numbers (in particular, the integer) don't have it.
     Float(&'source str),
     HexFloat(&'source str),
 }
@@ -63,6 +61,8 @@ pub enum Number<'source> {
 #[logos(subpattern octal = r"[0-7][_0-7]*")]
 #[logos(subpattern binary = r"[0-1][_0-1]*")]
 #[logos(subpattern exp = r"[eE][+-]?[0-9][_0-9]*")]
+#[logos(subpattern int_suffix = r"(i|u)(8|16|32|64|128|size)")]
+#[logos(subpattern float_suffix = r"f(32|64)")]
 pub enum Token<'source> {
     #[regex("//[^\n]*\n?", |c| Comment::Line(c.slice()))]
     /// TODO: this doesn't handle nestedness
@@ -89,14 +89,12 @@ pub enum Token<'source> {
     #[token("false", |_| false)]
     Bool(bool),
 
-    #[regex("(?&decimal)", |n| Number::Integer(n.slice()))]
-    #[regex("0[xX](?&hex)", |n| Number::HexInteger(n.slice()))]
-    #[regex("0[oO](?&octal)", |n| Number::OctalInteger(n.slice()))]
-    #[regex("0[bB](?&binary)", |n| Number::BinaryInteger(n.slice()))]
-    // NOTE: Not sure we want to keep the sign in the float regexp, other
-    // numbers (in particular, the integer) don't have it.
-    #[regex(r#"[+-]?(((?&decimal)\.(?&decimal)?(?&exp)?[fFdD]?)|(\.(?&decimal)(?&exp)?[fFdD]?)|((?&decimal)(?&exp)[fFdD]?)|((?&decimal)(?&exp)?[fFdD]))"#, |n| Number::Float(n.slice()))]
-    #[regex(r"0[xX](((?&hex))|((?&hex)\.)|((?&hex)?\.(?&hex)))[pP][+-]?(?&decimal)[fFdD]?", |n| Number::HexFloat(n.slice()))]
+    #[regex("(?&decimal)(?&int_suffix)?", |n| Number::Integer(n.slice()))]
+    #[regex("0[xX](?&hex)(?&int_suffix)?", |n| Number::HexInteger(n.slice()))]
+    #[regex("0[oO](?&octal)(?&int_suffix)?", |n| Number::OctalInteger(n.slice()))]
+    #[regex("0[bB](?&binary)(?&int_suffix)?", |n| Number::BinaryInteger(n.slice()))]
+    #[regex(r#"(((?&decimal)\.(?&decimal)?(?&exp)?(?&float_suffix)?)|(\.(?&decimal)(?&exp)?(?&float_suffix)?)|((?&decimal)(?&exp)(?&float_suffix)?)|((?&decimal)(?&exp)?(?&float_suffix)))"#, |n| Number::Float(n.slice()))]
+    #[regex(r"0[xX](((?&hex))|((?&hex)\.)|((?&hex)?\.(?&hex)))[pP][+-]?(?&decimal)(?&float_suffix)?", |n| Number::HexFloat(n.slice()))]
     Number(Number<'source>),
 
     #[token("==", |_| Operator::Equal)]
@@ -121,6 +119,9 @@ pub enum Token<'source> {
     #[token("else", |_| Keyword::Else)]
     #[token("return", |_| Keyword::Return)]
     Keyword(Keyword),
+
+    #[regex(r"[ \t\n\f]+")]
+    Whitespace(&'source str),
 }
 
 #[macro_export]
