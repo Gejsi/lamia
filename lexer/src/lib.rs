@@ -127,7 +127,7 @@ pub enum Token<'source> {
 #[macro_export]
 macro_rules! ok_first_token {
     ($src: expr, $expect: expr) => {
-        let mut lexer = Token::lexer($src);
+        let mut lexer = logos::Lexer::<Token>::new($src);
         assert_eq!(lexer.next(), Some(Ok($expect)));
     };
 }
@@ -135,7 +135,7 @@ macro_rules! ok_first_token {
 #[macro_export]
 macro_rules! err_first_token {
     ($src: expr, $expect: expr) => {
-        let mut lexer = Token::lexer($src);
+        let mut lexer = logos::Lexer::<Token>::new($src);
         assert_eq!(lexer.next(), Some(Err($expect)));
     };
 }

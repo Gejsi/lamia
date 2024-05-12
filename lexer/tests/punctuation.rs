@@ -1,5 +1,3 @@
-use logos::Logos;
-
 use lexer::{ok_first_token, Punctuation, Token};
 
 #[test]

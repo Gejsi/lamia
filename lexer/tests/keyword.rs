@@ -1,5 +1,3 @@
-use logos::Logos;
-
 use lexer::{ok_first_token, Keyword, Token};
 
 #[test]
