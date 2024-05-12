@@ -35,11 +35,21 @@ pub enum Operator {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Punctuation {
+pub enum Delimiter {
     Comma,
     Semicolon,
     Colon,
     RightArrow,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Grouping {
+    OpenParen,
+    CloseParen,
+    OpenBracket,
+    CloseBracket,
+    OpenBrace,
+    CloseBrace,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -69,11 +79,11 @@ pub enum Token<'source> {
     #[regex(r"/\*(?:[^*]|\*[^/])*\*/", |c| Comment::Block(c.slice()))]
     Comment(Comment<'source>),
 
-    #[token(",", |_| Punctuation::Comma)]
-    #[token(";", |_| Punctuation::Semicolon)]
-    #[token(":", |_| Punctuation::Colon)]
-    #[token("->", |_| Punctuation::RightArrow)]
-    Punctuation(Punctuation),
+    #[token(",", |_| Delimiter::Comma)]
+    #[token(";", |_| Delimiter::Semicolon)]
+    #[token(":", |_| Delimiter::Colon)]
+    #[token("->", |_| Delimiter::RightArrow)]
+    Delimiter(Delimiter),
 
     #[regex("(?&ident)")]
     Identifier(&'source str),
@@ -122,6 +132,14 @@ pub enum Token<'source> {
 
     #[regex(r"[ \t\n\f]+")]
     Whitespace(&'source str),
+
+    #[token("(", |_| Grouping::OpenParen)]
+    #[token(")", |_| Grouping::CloseParen)]
+    #[token("[", |_| Grouping::OpenBracket)]
+    #[token("]", |_| Grouping::CloseBracket)]
+    #[token("{", |_| Grouping::OpenBrace)]
+    #[token("}", |_| Grouping::CloseBrace)]
+    Grouping(Grouping),
 }
 
 #[macro_export]
@@ -135,7 +153,33 @@ macro_rules! ok_first_token {
 #[macro_export]
 macro_rules! err_first_token {
     ($src: expr, $expect: expr) => {
-        let mut lexer = logos::Lexer::<Token>::new($src);
+        let mut lexer = logos::Lexer::<lexer::Token>::new($src);
         assert_eq!(lexer.next(), Some(Err($expect)));
+    };
+}
+
+#[macro_export]
+macro_rules! ok_all_tokens {
+    ($src: expr, $expect: expr) => {
+        let mut lexer = logos::Lexer::<lexer::Token>::new($src);
+        let tokens = lexer.collect::<Result<Vec<lexer::Token>, ()>>();
+        assert_eq!(tokens, Ok($expect.into()));
+    };
+}
+
+#[macro_export]
+macro_rules! ok_no_whitespace {
+    ($src: expr, $expect: expr) => {
+        let mut lexer = logos::Lexer::<lexer::Token>::new($src);
+        let tokens = lexer
+            .filter(|t| {
+                if let Ok(lexer::Token::Whitespace(_)) = t {
+                    false
+                } else {
+                    true
+                }
+            })
+            .collect::<Result<Vec<lexer::Token>, ()>>();
+        assert_eq!(tokens, Ok($expect.into()));
     };
 }
