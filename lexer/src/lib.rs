@@ -1,6 +1,15 @@
 use logos::Logos;
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum Keyword {
+    Function,
+    Let,
+    If,
+    Else,
+    Return,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Comment<'source> {
     Line(&'source str),
     Block(&'source str),
@@ -104,25 +113,34 @@ pub enum Token<'source> {
     #[token("/", |_| Operator::Slash)]
     #[token("%", |_| Operator::Modulo)]
     Operator(Operator),
+
+    #[token("fn", |_| Keyword::Function)]
+    #[token("let", |_| Keyword::Let)]
+    #[token("if", |_| Keyword::If)]
+    #[token("else", |_| Keyword::Else)]
+    #[token("return", |_| Keyword::Return)]
+    Keyword(Keyword),
+}
+
+#[macro_export]
+macro_rules! ok_first_token {
+    ($src: expr, $expect: expr) => {
+        let mut lexer = Token::lexer($src);
+        assert_eq!(lexer.next(), Some(Ok($expect)));
+    };
+}
+
+#[macro_export]
+macro_rules! err_first_token {
+    ($src: expr, $expect: expr) => {
+        let mut lexer = Token::lexer($src);
+        assert_eq!(lexer.next(), Some(Err($expect)));
+    };
 }
 
 #[cfg(test)]
 mod tests {
     use crate::*;
-
-    macro_rules! ok_first_token {
-        ($src: expr, $expect: expr) => {
-            let mut lexer = Token::lexer($src);
-            assert_eq!(lexer.next(), Some(Ok($expect)));
-        };
-    }
-
-    macro_rules! err_first_token {
-        ($src: expr, $expect: expr) => {
-            let mut lexer = Token::lexer($src);
-            assert_eq!(lexer.next(), Some(Err($expect)));
-        };
-    }
 
     #[test]
     fn match_comment() {
@@ -152,16 +170,6 @@ mod tests {
         ok_first_token!(";", Token::Punctuation(Punctuation::Semicolon));
         ok_first_token!(":", Token::Punctuation(Punctuation::Colon));
         ok_first_token!("->", Token::Punctuation(Punctuation::RightArrow));
-    }
-
-    #[test]
-    fn match_identifier() {
-        ok_first_token!("varname", Token::Identifier("varname"));
-        ok_first_token!("var_name", Token::Identifier("var_name"));
-        ok_first_token!("var_name1", Token::Identifier("var_name1"));
-        ok_first_token!("_var_name", Token::Identifier("_var_name"));
-        // TODO: should fail, but instead the 1 gets lexed into a number
-        // err_first_token!("1var_name", ());
     }
 
     #[test]
