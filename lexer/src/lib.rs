@@ -1,9 +1,35 @@
-use logos::Logos;
+#![feature(result_flattening)]
+use logos::{Lexer, Logos};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Comment<'source> {
     Line(&'source str),
-    Block(&'source str),
+    // Block(&'source [BlockComment<'source>]),
+}
+
+// Waiting for: https://github.com/maciejhirsz/logos/issues/148
+#[derive(Debug, Logos)]
+#[logos(extras = i64)]
+enum BlockComment {
+    #[regex(r"/\*", |l| { l.extras += 1 })]
+    Open,
+
+    #[regex(r"\*/", block_comment_close)]
+    Close,
+
+    #[regex(r".", |l| {
+        l.extras == -1 
+    })]
+    Any,
+}
+
+fn block_comment_close(lex: &mut Lexer<BlockComment>) -> Result<(), ()> {
+    lex.extras -= 1;
+    if lex.extras < 0 {
+        Err(())
+    } else {
+        Ok(())
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -56,9 +82,15 @@ pub enum Number<'source> {
 #[logos(subpattern exp = r"[eE][+-]?[0-9][_0-9]*")]
 pub enum Token<'source> {
     #[regex("//[^\n]*\n?", |c| Comment::Line(c.slice()))]
-    /// TODO: this doesn't handle nestedness
-    #[regex(r"/\*(?:[^*]|\*[^/])*\*/", |c| Comment::Block(c.slice()))]
-    Comment(Comment<'source>),
+    LineComment(Comment<'source>),
+
+    #[regex(r"/\*", |lex| {
+        let mut lexer = BlockComment::lexer(lex.remainder());
+        let token = lexer.next();
+        println!("{:?}", token);
+        token.ok_or(()).flatten().map(|_| lexer.slice())
+    })]
+    BlockComment(&'source str),
 
     #[token(",", |_| Punctuation::Comma)]
     #[token(";", |_| Punctuation::Semicolon)]
@@ -128,22 +160,23 @@ mod tests {
     fn match_comment() {
         ok_first_token!(
             "// test comment",
-            Token::Comment(Comment::Line("// test comment"))
+            Token::LineComment(Comment::Line("// test comment"))
         );
         // new line should be captures
         ok_first_token!(
             "// test comment\n",
-            Token::Comment(Comment::Line("// test comment\n"))
+            Token::LineComment(Comment::Line("// test comment\n"))
         );
-        ok_first_token!(
-            "/* block comment */",
-            Token::Comment(Comment::Block("/* block comment */"))
-        );
-        // TODO: nested block comments should be allowed
-        // match_first_token!(
-        //     "/* block /* comment */ */",
-        //     Token::Comment(Comment::Block("/* block /* comment */ */"))
+        // ok_first_token!(
+        //     "/* block comment */",
+        //     Token::Comment(Comment::Block("/* block comment */"))
         // );
+        // TODO: nested block comments should be allowed
+        // ok_first_token!(
+        //     "/* block /* comment */ */",
+        //     Token::BlockComment("/* block /* comment */ */")
+        // );
+        err_first_token!("/* block comment */ */", ());
     }
 
     #[test]
