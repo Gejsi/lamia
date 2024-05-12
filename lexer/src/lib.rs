@@ -78,9 +78,10 @@ pub enum Token<'source> {
     #[regex("(?&ident)")]
     Identifier(&'source str),
 
-    // TODO: probably more escapes are needed
     #[regex(r"'(?:[^']|\\')*'")]
     Character(&'source str),
+
+    // TODO: probably more escapes are needed
     #[regex("\"(?:[^\"]|\\\")*\"")]
     String(&'source str),
 
@@ -136,66 +137,4 @@ macro_rules! err_first_token {
         let mut lexer = Token::lexer($src);
         assert_eq!(lexer.next(), Some(Err($expect)));
     };
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::*;
-
-    #[test]
-    fn match_comment() {
-        ok_first_token!(
-            "// test comment",
-            Token::Comment(Comment::Line("// test comment"))
-        );
-        // new line should be captures
-        ok_first_token!(
-            "// test comment\n",
-            Token::Comment(Comment::Line("// test comment\n"))
-        );
-        ok_first_token!(
-            "/* block comment */",
-            Token::Comment(Comment::Block("/* block comment */"))
-        );
-        // TODO: nested block comments should be allowed
-        // match_first_token!(
-        //     "/* block /* comment */ */",
-        //     Token::Comment(Comment::Block("/* block /* comment */ */"))
-        // );
-    }
-
-    #[test]
-    fn match_punctuation() {
-        ok_first_token!(",", Token::Punctuation(Punctuation::Comma));
-        ok_first_token!(";", Token::Punctuation(Punctuation::Semicolon));
-        ok_first_token!(":", Token::Punctuation(Punctuation::Colon));
-        ok_first_token!("->", Token::Punctuation(Punctuation::RightArrow));
-    }
-
-    #[test]
-    fn match_char() {
-        ok_first_token!(r#"'\n'"#, Token::Character("'\\n'"));
-        ok_first_token!(r#"'\r'"#, Token::Character("'\\r'"));
-        ok_first_token!(r#"'\t'"#, Token::Character("'\\t'"));
-        ok_first_token!(r#"'\\'"#, Token::Character("'\\\\'"));
-        ok_first_token!(r#"'/'"#, Token::Character("'/'"));
-        ok_first_token!(r#"'"'"#, Token::Character("'\"'"));
-        ok_first_token!(r#"' '"#, Token::Character("' '"));
-        ok_first_token!(r#"'\''"#, Token::Character("'\\''"));
-        ok_first_token!("'\\u{1F600}'", Token::Character("'\\u{1F600}'"));
-        ok_first_token!("'😀'", Token::Character("'😀'"));
-        ok_first_token!("'東'", Token::Character("'東'"));
-        ok_first_token!("'д'", Token::Character("'д'"));
-        ok_first_token!("'ل'", Token::Character("'ل'"));
-        // TODO: these should fail
-        // err_first_token!("'ab'", ());
-        // err_first_token!("'  '", ());
-        // err_first_token!("'東京'", ());
-        // err_first_token!("'''", ());
-    }
-
-    #[test]
-    fn match_integer() {
-        ok_first_token!("1", Token::Number(Number::Integer("1")));
-    }
 }
