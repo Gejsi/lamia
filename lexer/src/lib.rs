@@ -82,7 +82,7 @@ pub enum Token<'source> {
     Character(&'source str),
 
     // TODO: probably more escapes are needed
-    #[regex("\"(?:[^\"]|\\\")*\"")]
+    #[regex(r#""(?:[^"]|\\")*""#)]
     String(&'source str),
 
     #[token("true", |_| true)]

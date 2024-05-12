@@ -1,6 +1,6 @@
 use logos::Logos;
 
-use lexer::{err_first_token, ok_first_token, Token};
+use lexer::{ok_first_token, Token};
 
 #[test]
 fn match_simple_character() {
