@@ -1,4 +1,6 @@
-use lexer::{ok_all_tokens, ok_no_whitespace, Grouping, Keyword, Number, Operator, Token};
+use lexer::{
+    ok_all_tokens, ok_no_whitespace, Assign, Delimiter, Grouping, Keyword, Number, Operator, Token,
+};
 
 #[test]
 fn match_expr() {
@@ -56,7 +58,6 @@ fn match_expr() {
             Token::Grouping(Grouping::CloseBrace),
         ]
     );
-
     ok_no_whitespace!(
         "(n + 1) * 2",
         [
@@ -67,6 +68,20 @@ fn match_expr() {
             Token::Grouping(Grouping::CloseParen),
             Token::Operator(Operator::Star),
             Token::Number(Number::Integer("2")),
+        ]
+    );
+}
+
+#[test]
+fn match_stmt() {
+    ok_no_whitespace!(
+        "let foo = 13.0f32;",
+        [
+            Token::Keyword(Keyword::Let),
+            Token::Identifier("foo"),
+            Token::Assign(Assign::Equal),
+            Token::Number(Number::Float("13.0f32")),
+            Token::Delimiter(Delimiter::Semicolon),
         ]
     );
 }

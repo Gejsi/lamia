@@ -35,6 +35,16 @@ pub enum Operator {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum Assign {
+    Equal,
+    PlusEqual,
+    MinusEqual,
+    SlashEqual,
+    StarEqual,
+    ModuloEqual,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Delimiter {
     Comma,
     Semicolon,
@@ -46,8 +56,8 @@ pub enum Delimiter {
 pub enum Grouping {
     OpenParen,
     CloseParen,
-    OpenBracket,
-    CloseBracket,
+    OpenSquare,
+    CloseSquare,
     OpenBrace,
     CloseBrace,
 }
@@ -123,6 +133,14 @@ pub enum Token<'source> {
     #[token("%", |_| Operator::Modulo)]
     Operator(Operator),
 
+    #[token("+=", |_| Assign::PlusEqual)]
+    #[token("-=", |_| Assign::MinusEqual)]
+    #[token("*=", |_| Assign::StarEqual)]
+    #[token("/=", |_| Assign::SlashEqual)]
+    #[token("%=", |_| Assign::ModuloEqual)]
+    #[token("=", |_| Assign::Equal)]
+    Assign(Assign),
+
     #[token("fn", |_| Keyword::Function)]
     #[token("let", |_| Keyword::Let)]
     #[token("if", |_| Keyword::If)]
@@ -135,8 +153,8 @@ pub enum Token<'source> {
 
     #[token("(", |_| Grouping::OpenParen)]
     #[token(")", |_| Grouping::CloseParen)]
-    #[token("[", |_| Grouping::OpenBracket)]
-    #[token("]", |_| Grouping::CloseBracket)]
+    #[token("[", |_| Grouping::OpenSquare)]
+    #[token("]", |_| Grouping::CloseSquare)]
     #[token("{", |_| Grouping::OpenBrace)]
     #[token("}", |_| Grouping::CloseBrace)]
     Grouping(Grouping),

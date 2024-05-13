@@ -77,4 +77,12 @@ fn match_bin_integer() {
     ok_first_token!("0B0101", Token::Number(Number::BinaryInteger("0B0101")));
 }
 
-// TODO: add hex float tests
+#[test]
+fn match_hex_float() {
+    ok_first_token!("0x0.3p10", Token::Number(Number::HexFloat("0x0.3p10")));
+    ok_first_token!("0X0.3p10", Token::Number(Number::HexFloat("0X0.3p10")));
+    ok_first_token!(
+        "0x0.3p-10f32",
+        Token::Number(Number::HexFloat("0x0.3p-10f32"))
+    );
+}
