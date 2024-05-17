@@ -7,14 +7,14 @@ fn match_simple_character() {
 
 #[test]
 fn match_escaped_character() {
-    ok_first_token!(r#"'\n'"#, Token::Character("'\\n'"));
-    ok_first_token!(r#"'\r'"#, Token::Character("'\\r'"));
-    ok_first_token!(r#"'\t'"#, Token::Character("'\\t'"));
-    ok_first_token!(r#"'\\'"#, Token::Character("'\\\\'"));
-    ok_first_token!(r#"'/'"#, Token::Character("'/'"));
+    ok_first_token!(r"'\n'", Token::Character("'\\n'"));
+    ok_first_token!(r"'\r'", Token::Character("'\\r'"));
+    ok_first_token!(r"'\t'", Token::Character("'\\t'"));
+    ok_first_token!(r"'\\'", Token::Character("'\\\\'"));
+    ok_first_token!(r"'/'", Token::Character("'/'"));
     ok_first_token!(r#"'"'"#, Token::Character("'\"'"));
     ok_first_token!(r#"' '"#, Token::Character("' '"));
-    ok_first_token!(r#"'\''"#, Token::Character("'\\''"));
+    ok_first_token!(r"'\''", Token::Character("'\\''"));
     // ok_first_token!("'\\u{1F600}'", Token::Character("'\\u{1F600}'"));
 }
 

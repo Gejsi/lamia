@@ -1,5 +1,14 @@
 use logos::Logos;
 
+#[derive(Debug)]
+pub struct Lexer<'a>(logos::Lexer<'a, Token<'a>>);
+
+impl<'a> Lexer<'a> {
+    pub fn new(input: &'a str) -> Self {
+        Self(Token::lexer(input))
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Keyword {
     Function,
@@ -190,13 +199,7 @@ macro_rules! ok_no_whitespace {
     ($src: expr, $expect: expr) => {
         let mut lexer = logos::Lexer::<lexer::Token>::new($src);
         let tokens = lexer
-            .filter(|t| {
-                if let Ok(lexer::Token::Whitespace(_)) = t {
-                    false
-                } else {
-                    true
-                }
-            })
+            .filter(|t| !matches!(t, Ok(lexer::Token::Whitespace(_))))
             .collect::<Result<Vec<lexer::Token>, ()>>();
         assert_eq!(tokens, Ok($expect.into()));
     };
